@@ -84,7 +84,7 @@ export const properties = [
         bathrooms: 1,
         size: 48,
         propertyType: "House",
-        facilities: ["Wi-Fi", "Air Conditioner", "Parking", "Balcony"],
+        facilities: ["Wi-Fi", "Air Conditioner", "Parking", "Balcony", "Pet friendly"],
         description: "A quiet two-bedroom house with a private garden in Ladprao. The bright kitchen with breakfast counter opens to the balcony, and there is parking for one car. Ideal for a small family or sharers.",
         owner: { name: "Mrs. Malee", initials: "SM", memberSince: "2022", rating: 4.8, reviews: 21 },
         availableNow: true,

@@ -11,12 +11,11 @@ const categories = [
     { label: "Condos", icon: "condo", href: "/search?type=Condo" },
     { label: "Houses", icon: "homeFilled", href: "/search?type=House" },
     { label: "Dormitories", icon: "room", href: "/search?type=Dormitory" },
-    { label: "Pet friendly", icon: "heart" },
-    { label: "Near University", icon: "apartment" },
-    { label: "Near BTS/MRT", icon: "location" },
+    { label: "Pet friendly", icon: "heart", href: "/search?petFriendly=true" },
+    { label: "Near University", icon: "apartment", href: "/search?nearUniversity=true" },
+    { label: "Near BTS/MRT", icon: "location", href: "/search?nearTransit=true" },
 ];
 // Only link chips that the existing title/location/type keyword search supports.
-// Pet policy, university proximity, and transit proximity are not search filters.
 const popularSearches = [
     { label: "Chulalongkorn University" },
     { label: "Sukhumvit", href: "/search?q=Sukhumvit" },

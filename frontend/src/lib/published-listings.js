@@ -5,7 +5,7 @@ import { properties } from "@/mocks/properties";
 import { formatPropertyLocation } from "@/lib/property-location";
 import { readMockListings, mockListingsChangedEvent } from "@/lib/mock-listings";
 import { findMockPartnerCapability, mockPartnerApplicationsChangedEvent } from "@/lib/mock-partner-application";
-import { facilities, propertyTypes } from "@/types/property";
+import { propertyTypes } from "@/types/property";
 // Fallback image for published Partner listings, matching the existing
 // fallback behavior elsewhere. Listing photos store metadata only, so no
 // real listing photo URLs are ever invented.
@@ -14,7 +14,7 @@ function isPropertyType(value) {
     return propertyTypes.includes(value);
 }
 function toValidFacilities(values) {
-    return values.filter((value) => facilities.includes(value));
+    return values.filter((value) => typeof value === "string");
 }
 // Converts a published MockListing into the existing public Property shape.
 // Returns null when the stored listing cannot satisfy the shape.

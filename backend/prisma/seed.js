@@ -92,7 +92,7 @@ export async function seed(db) {
       photo: "/images/home/modern-studio.jpg",
     },
     { id: "luxury-dormitory", title: "Luxury Dormitory", location: "Asoke, Bangkok", area: "Asoke", province: "Bangkok", monthlyRent: 18000, propertyType: "Dormitory", bedrooms: 1, bathrooms: 1, sizeSqm: 28, description: "A premium dormitory-style room in Asoke with hotel-like facilities.", facilities: ["Wi-Fi", "Air Conditioner", "Furnished", "Parking", "Security / CCTV", "Swimming Pool", "Fitness / Gym", "Balcony"], roomStatus: "AVAILABLE", popular: true, photo: "/images/home/luxury-room.jpg" },
-    { id: "garden-house", title: "Garden House", location: "Ladprao, Bangkok", area: "Ladprao", province: "Bangkok", monthlyRent: 15000, propertyType: "House", bedrooms: 2, bathrooms: 1, sizeSqm: 48, description: "A quiet two-bedroom house with a private garden in Ladprao.", facilities: ["Wi-Fi", "Air Conditioner", "Parking", "Balcony"], roomStatus: "AVAILABLE", popular: true, photo: "/images/home/garden-house.jpg" },
+    { id: "garden-house", title: "Garden House", location: "Ladprao, Bangkok", area: "Ladprao", province: "Bangkok", monthlyRent: 15000, propertyType: "House", bedrooms: 2, bathrooms: 1, sizeSqm: 48, description: "A quiet two-bedroom house with a private garden in Ladprao.", facilities: ["Wi-Fi", "Air Conditioner", "Parking", "Balcony", "Pet friendly"], roomStatus: "AVAILABLE", popular: true, photo: "/images/home/garden-house.jpg" },
     { id: "spacious-townhouse", title: "Spacious Townhouse", location: "Chatuchak, Bangkok", area: "Chatuchak", province: "Bangkok", monthlyRent: 12000, propertyType: "Townhouse", bedrooms: 1, bathrooms: 1, sizeSqm: 20, description: "A compact townhouse near Chatuchak weekend market.", facilities: ["Air Conditioner", "Furnished", "Elevator", "Balcony"], roomStatus: "UNAVAILABLE", popular: false, photo: "/images/search/spacious-apartment.jpg" },
     { id: "duplex-loft-one-bedroom", title: "Duplex Loft One Bedroom", location: "Sukhumvit, Bangkok", area: "Sukhumvit", province: "Bangkok", monthlyRent: 15000, propertyType: "Duplex / Loft", bedrooms: 1, bathrooms: 1, sizeSqm: 35, description: "A stylish duplex loft in Sukhumvit with a mezzanine bedroom.", facilities: ["Wi-Fi", "Air Conditioner", "Furnished", "Parking", "Elevator", "Security / CCTV", "Swimming Pool", "Fitness / Gym"], roomStatus: "UNAVAILABLE", popular: false, photo: "/images/search/condo-one-bedroom.jpg" },
     { id: "sathon-sky-condo", title: "Skyline Family Condo", location: "Sathon, Bangkok", area: "Sathon", province: "Bangkok", monthlyRent: 24000, propertyType: "Condo", bedrooms: 3, bathrooms: 2, sizeSqm: 68, description: "A spacious three-bedroom family condo in Sathon.", facilities: ["Wi-Fi", "Air Conditioner", "Furnished", "Parking", "Elevator", "Security / CCTV", "Swimming Pool", "Fitness / Gym"], roomStatus: "AVAILABLE", popular: false, photo: "/images/search/condo-one-bedroom.jpg" },
@@ -105,7 +105,16 @@ export async function seed(db) {
 
   for (const property of properties) {
     const existing = await db.property.findUnique({ where: { id: property.id } });
-    if (existing) continue;
+    if (existing) {
+      // Backfill the demo pet policy without overwriting other listing edits.
+      if (property.facilities.includes("Pet friendly") && !existing.facilities.includes("Pet friendly")) {
+        await db.property.update({
+          where: { id: property.id },
+          data: { facilities: { push: "Pet friendly" } },
+        });
+      }
+      continue;
+    }
     await db.property.create({
       data: {
         id: property.id,

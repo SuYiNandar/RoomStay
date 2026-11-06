@@ -11,6 +11,9 @@ export function initialSearchFilters(params = {}) {
         bedrooms: "",
         facilities: [],
         availableOnly: false,
+        petFriendly: value("petFriendly") === "true",
+        nearUniversity: value("nearUniversity") === "true",
+        nearTransit: value("nearTransit") === "true",
         sort: "default",
     };
 }
@@ -33,7 +36,11 @@ export function filterProperties(properties, filters) {
     const words = filters.query.toLowerCase().trim().split(/[\s,]+/).filter(Boolean);
     const results = properties.filter((property) => {
         const text = `${property.title} ${property.location} ${property.propertyType} ${property.buildingName ?? ""} ${property.fullAddress ?? ""}`.toLowerCase();
+        const categoryText = [property.title, property.location, property.buildingName, property.fullAddress, ...property.facilities].join(" ");
         return words.every((word) => text.includes(word))
+            && (!filters.petFriendly || property.facilities.includes("Pet friendly"))
+            && (!filters.nearUniversity || /\b(university|campus)\b/i.test(categoryText))
+            && (!filters.nearTransit || /\b(bts|mrt|station)\b/i.test(categoryText))
             && (!filters.location || property.location === filters.location)
             && (!filters.roomType || property.propertyType === filters.roomType)
             && (!filters.minPrice || property.price >= Number(filters.minPrice))

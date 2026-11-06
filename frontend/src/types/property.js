@@ -10,5 +10,6 @@ export const facilities = [
     "Fitness / Gym",
     "Washing Machine",
     "Balcony",
+    "Pet friendly",
 ];
 export const suitableForOptions = ["STUDENTS", "PROFESSIONALS", "FAMILIES"];

@@ -1,5 +1,5 @@
 import { api } from "@/lib/api";
-import { facilities, propertyTypes } from "@/types/property";
+import { propertyTypes } from "@/types/property";
 import { liveEnabled, readLive, setLiveEnabled, upsertLive, writeLive, writeLiveRoomStatus, writeLiveRoomStatuses, } from "@/lib/live-store";
 function text(value) {
     return typeof value === "string" ? value : undefined;
@@ -25,7 +25,7 @@ export function apiPropertyToProperty(item) {
         bathrooms: item.bathrooms,
         size: item.size,
         propertyType: item.propertyType,
-        facilities: item.facilities.filter((facility) => facilities.includes(facility)),
+        facilities: item.facilities.filter((facility) => typeof facility === "string"),
         description: item.description,
         owner: {
             name: item.owner?.name ?? "Property Partner",
