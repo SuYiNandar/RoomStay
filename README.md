@@ -4,6 +4,19 @@ RoomStay is a university project for a Condo & Apartment Rental Management Syste
 
 The current application is split into a Next.js frontend written in JavaScript and an Express API. The API in `backend/` implements the rental rules with Prisma and stores data in Supabase Postgres. RoomStay records deposit instructions and payment evidence only; it does not move money.
 
+Public repository: https://github.com/pyaeyt/RoomStay
+
+## Last update
+
+30 October 2026
+
+- Login asks for Renter, Partner, or Admin first. The page does not show a demo password.
+- Register asks for full name, email, and password. It does not ask for a phone number.
+- A booking stays pending until the partner approves it. Bank details appear only after approval.
+- The renter pays outside RoomStay and uploads a JPG or PNG of the transfer slip. That photo is stored and shown on the booking, on the partner review, and in the payment chat.
+- Facilities stay on the Property row as a list of strings. There is no separate Facility table.
+- A clickable GUI prototype is at http://localhost:3000/gui-prototype.html when the website is running.
+
 ## Current implementation
 
 - `frontend/` is the Next.js website, written in JavaScript. Its screens cover processes 1.0–8.0 and call the API.
@@ -17,7 +30,7 @@ The finalized booking flow includes deposit and payment-evidence verification:
 1. Renter submits a booking request.
 2. Partner reviews the request.
 3. If approved, the booking moves to the deposit stage and the room becomes reserved.
-4. The renter pays externally and uploads payment evidence.
+4. The renter pays externally and uploads a photo of the transfer slip.
 5. The Partner verifies or rejects the evidence.
 6. Verified bookings become confirmed.
 7. Rental start later marks the room as rented.

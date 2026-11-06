@@ -144,7 +144,6 @@ export function LoginForm({ returnTo }) {
         <button type="submit" disabled={submitting} className="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-primary px-4 text-sm font-semibold text-white shadow-sm hover:bg-primary/95 btn-primary disabled:opacity-70">
           {submitting ? "Logging in..." : "Log in"}
         </button>
-        <p className="text-center text-xs text-ink-secondary">Demo password: password123</p>
       </>)}
     </form>);
 }
@@ -153,13 +152,11 @@ export function RegisterForm({ returnTo }) {
     const { register, pendingAction } = useMockAuth();
     const fullNameId = useId();
     const emailId = useId();
-    const phoneId = useId();
     const passwordId = useId();
     const confirmPasswordId = useId();
     const termsId = useId();
     const [fullName, setFullName] = useState("");
     const [email, setEmail] = useState("");
-    const [phone, setPhone] = useState("");
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
     const [termsAccepted, setTermsAccepted] = useState(false);
@@ -174,8 +171,6 @@ export function RegisterForm({ returnTo }) {
             nextErrors.email = "Email is required.";
         else if (!isValidEmail(email))
             nextErrors.email = "Enter a valid email address.";
-        if (!phone.trim())
-            nextErrors.phone = "Phone number is required.";
         if (!password)
             nextErrors.password = "Password is required.";
         else if (!hasRequiredPassword(password))
@@ -195,7 +190,6 @@ export function RegisterForm({ returnTo }) {
                 fullName: fullName.trim(),
                 email: email.trim(),
                 password,
-                phone: phone.trim(),
             });
             setMessage("Account created.");
             router.push(redirectTarget(returnTo, pendingAction?.returnTo));
@@ -207,7 +201,7 @@ export function RegisterForm({ returnTo }) {
     return (<form onSubmit={submit} noValidate className="grid gap-4">
       <label className="block text-sm font-medium text-ink">
         Full name
-        <input id={fullNameId} type="text" value={fullName} onChange={(event) => setFullName(event.target.value)} required autoComplete="name" placeholder="Su Yi Nandar" aria-invalid={Boolean(errors.fullName)} aria-describedby={errors.fullName ? `${fullNameId}-error` : undefined} className={fieldClass}/>
+        <input id={fullNameId} type="text" value={fullName} onChange={(event) => setFullName(event.target.value)} required autoComplete="name" placeholder="Your full name" aria-invalid={Boolean(errors.fullName)} aria-describedby={errors.fullName ? `${fullNameId}-error` : undefined} className={fieldClass}/>
         {errors.fullName && <span id={`${fullNameId}-error`} className={errorClass}>{errors.fullName}</span>}
       </label>
 
@@ -215,12 +209,6 @@ export function RegisterForm({ returnTo }) {
         Email
         <input id={emailId} type="email" value={email} onChange={(event) => setEmail(event.target.value)} required autoComplete="email" placeholder="you@example.com" aria-invalid={Boolean(errors.email)} aria-describedby={errors.email ? `${emailId}-error` : undefined} className={fieldClass}/>
         {errors.email && <span id={`${emailId}-error`} className={errorClass}>{errors.email}</span>}
-      </label>
-
-      <label className="block text-sm font-medium text-ink">
-        Phone Number
-        <input id={phoneId} type="tel" value={phone} onChange={(event) => setPhone(event.target.value)} required autoComplete="tel" placeholder="+66 81 234 5678" aria-invalid={Boolean(errors.phone)} aria-describedby={errors.phone ? `${phoneId}-error` : undefined} className={fieldClass}/>
-        {errors.phone && <span id={`${phoneId}-error`} className={errorClass}>{errors.phone}</span>}
       </label>
 
       <div>

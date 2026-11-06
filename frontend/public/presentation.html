@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RoomStay presentation</title>
+  <style>
+    :root {
+      --ink: #1a1624;
+      --muted: #5e574e;
+      --primary: #482bf4;
+      --deep: #241a78;
+      --canvas: #f4efe8;
+      --white: #fffcf8;
+      --coral: #e85d4c;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; background: #1a1624; font-family: Calibri, "Segoe UI", Arial, sans-serif; }
+    .deck { height: 100%; display: grid; place-items: center; }
+    .slide {
+      display: none;
+      width: min(1100px, calc(100vw - 32px));
+      aspect-ratio: 16 / 9;
+      background: var(--canvas);
+      color: var(--ink);
+      border-radius: 16px;
+      overflow: hidden;
+      position: relative;
+      box-shadow: 0 24px 70px rgb(0 0 0 / 35%);
+    }
+    .slide.on { display: block; }
+    .bar { position: absolute; left: 0; top: 0; bottom: 0; width: 10px; background: var(--primary); }
+    .pad { padding: 36px 48px 52px 56px; height: 100%; }
+    h1 { margin: 6px 0 0; font-size: 38px; letter-spacing: -0.03em; }
+    .kicker { margin: 0; color: var(--primary); font-size: 13px; font-weight: 800; letter-spacing: 0.14em; }
+    .cards, .grid3, .grid4, .flow { display: grid; gap: 14px; margin-top: 22px; }
+    .cards { grid-template-columns: repeat(3, 1fr); }
+    .grid4 { grid-template-columns: repeat(4, 1fr); }
+    .flow { grid-template-columns: repeat(3, 1fr); }
+    .card, .row, .pair {
+      background: var(--white);
+      border-radius: 16px;
+      padding: 16px 18px;
+    }
+    .card h2, .pair h2 { margin: 8px 0; font-size: 22px; }
+    .card p, .pair p, .row p { margin: 0; color: var(--muted); line-height: 1.4; }
+    .num { color: var(--primary); font-weight: 800; }
+    .two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 18px; }
+    .rows { display: grid; gap: 8px; margin-top: 18px; }
+    .row { display: grid; grid-template-columns: 280px 1fr; align-items: center; }
+    .row strong { color: var(--primary); }
+    .title {
+      background: var(--deep);
+      color: white;
+    }
+    .title .bar { background: var(--coral); }
+    .title h1 { font-size: 52px; line-height: 1.05; margin-top: 12px; }
+    .title p { color: #e4dcff; font-size: 20px; }
+    .foot { position: absolute; right: 22px; bottom: 14px; color: var(--muted); font-size: 13px; }
+    .hint { position: fixed; left: 0; right: 0; bottom: 14px; text-align: center; color: #d9d3c8; font-size: 13px; }
+    button.nav {
+      position: fixed; top: 50%; transform: translateY(-50%);
+      width: 42px; height: 42px; border: 0; border-radius: 999px;
+      background: white; color: var(--ink); font-size: 22px; cursor: pointer;
+    }
+    .prev { left: 16px; }
+    .next { right: 16px; }
+    ul { margin: 12px 0 0; padding-left: 18px; }
+    li { margin: 8px 0; line-height: 1.35; }
+    @media (max-width: 800px) {
+      .cards, .grid4, .flow, .two, .row { grid-template-columns: 1fr; }
+      .slide { aspect-ratio: auto; min-height: 100vh; border-radius: 0; width: 100%; }
+      h1 { font-size: 30px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="deck">
+    <section class="slide title on">
+      <div class="bar"></div>
+      <div class="pad">
+        <p class="kicker">ROOMSTAY</p>
+        <h1>Find a room.<br>Book it.<br>Show the slip.</h1>
+        <p>Database design and GUI walkthrough</p>
+      </div>
+    </section>
+
+    <section class="slide">
+      <div class="bar"></div>
+      <div class="pad">
+        <p class="kicker">ROOMSTAY</p>
+        <h1>What is RoomStay?</h1>
+        <div class="cards">
+          <article class="card"><p class="num">01</p><h2>Search</h2><p>Condos, apartments, houses, and dormitories in one catalog.</p></article>
+          <article class="card"><p class="num">02</p><h2>Request</h2><p>A renter asks to book. A viewing is optional and does not reserve the room.</p></article>
+          <article class="card"><p class="num">03</p><h2>Prove payment</h2><p>The renter pays at the bank, then uploads a photo of the transfer slip.</p></article>
+        </div>
+      </div>
+      <div class="foot">2 / 9</div>
+    </section>
+
+    <section class="slide">
+      <div class="bar"></div>
+      <div class="pad">
+        <p class="kicker">ROOMSTAY</p>
+        <h1>Who uses it?</h1>
+        <div class="rows">
+          <article class="row"><strong>Renter</strong><p>Searches rooms, sends a booking request, and uploads the deposit slip.</p></article>
+          <article class="row"><strong>Partner</strong><p>An approved user. Lists rooms, approves requests, and checks the slip.</p></article>
+          <article class="row"><strong>Admin</strong><p>Reviews partner applications and listings, and replies in the payment chat.</p></article>
+        </div>
+      </div>
+      <div class="foot">3 / 9</div>
+    </section>
+
+    <section class="slide">
+      <div class="bar"></div>
+      <div class="pad">
+        <p class="kicker">ROOMSTAY</p>
+        <h1>How is the database designed?</h1>
+        <div class="two">
+          <article class="card">
+            <h2>People and rooms</h2>
+            <ul>
+              <li>User — renter, partner, or admin</li>
+              <li>PartnerApplication — who may list rooms</li>
+              <li>Property — the room, including facilities</li>
+              <li>PropertyPhoto, Favorite, Viewing</li>
+            </ul>
+          </article>
+          <article class="card">
+            <h2>Booking records</h2>
+            <ul>
+              <li>Booking — the request and its status</li>
+              <li>ReservationDeposit — amount, deadline, and the slip</li>
+              <li>Conversation and Message</li>
+              <li>Review, Report, Notification, AuditLog</li>
+            </ul>
+          </article>
+        </div>
+      </div>
+      <div class="foot">4 / 9</div>
+    </section>
+
+    <section class="slide">
+      <div class="bar"></div>
+      <div class="pad">
+        <p class="kicker">ROOMSTAY</p>
+        <h1>Facilities stay on Property</h1>
+        <article class="card">
+          <h2>facilities: string[]</h2>
+          <p>Wi-Fi, Air conditioner, Furnished, Parking, and the rest are one list on the property row.</p>
+        </article>
+        <div class="cards">
+          <article class="card"><h2>One table</h2><p>The ERD and the database use the same Property table.</p></article>
+          <article class="card"><h2>Shown in the GUI</h2><p>Room page chips and the partner listing form read that list.</p></article>
+          <article class="card"><h2>No extra tables</h2><p>Facility and PropertyFacility are not in this database.</p></article>
+        </div>
+      </div>
+      <div class="foot">5 / 9</div>
+    </section>
+
+    <section class="slide">
+      <div class="bar"></div>
+      <div class="pad">
+        <p class="kicker">ROOMSTAY</p>
+        <h1>How the ERD connects to the GUI</h1>
+        <div class="rows">
+          <article class="row"><strong>Property</strong><p>Home, search, and the room page</p></article>
+          <article class="row"><strong>Booking</strong><p>Request booking and My bookings</p></article>
+          <article class="row"><strong>ReservationDeposit</strong><p>Bank details and the uploaded slip</p></article>
+          <article class="row"><strong>User + PartnerApplication</strong><p>Login role and the partner portal</p></article>
+          <article class="row"><strong>Report, Notification, AuditLog</strong><p>Admin pages</p></article>
+        </div>
+      </div>
+      <div class="foot">6 / 9</div>
+    </section>
+
+    <section class="slide">
+      <div class="bar"></div>
+      <div class="pad">
+        <p class="kicker">ROOMSTAY</p>
+        <h1>What the GUI looks like</h1>
+        <div class="grid4">
+          <article class="card"><h2>1 Home</h2></article>
+          <article class="card"><h2>2 Room</h2></article>
+          <article class="card"><h2>3 Booking request</h2></article>
+          <article class="card"><h2>4 My bookings</h2></article>
+          <article class="card"><h2>5 Deposit and slip</h2></article>
+          <article class="card"><h2>6 Partner checks the slip</h2></article>
+          <article class="card"><h2>7 Payment chat</h2></article>
+          <article class="card"><h2>8 Admin</h2></article>
+        </div>
+        <p style="margin-top:16px;color:#5e574e">Live site localhost:3000 · Prototype localhost:3000/gui-prototype.html</p>
+      </div>
+      <div class="foot">7 / 9</div>
+    </section>
+
+    <section class="slide">
+      <div class="bar"></div>
+      <div class="pad">
+        <p class="kicker">ROOMSTAY</p>
+        <h1>How the system flows</h1>
+        <div class="flow">
+          <article class="card"><p class="num">1</p><h2>Request</h2><p>Pending. The room stays available.</p></article>
+          <article class="card"><p class="num">2</p><h2>Approve</h2><p>Deposit pending. The room is reserved.</p></article>
+          <article class="card"><p class="num">3</p><h2>Pay</h2><p>The renter pays at the bank.</p></article>
+          <article class="card"><p class="num">4</p><h2>Upload</h2><p>The slip photo is saved on the booking.</p></article>
+          <article class="card"><p class="num">5</p><h2>Check</h2><p>The partner accepts the slip. Booking confirmed.</p></article>
+          <article class="card"><p class="num">6</p><h2>Move in</h2><p>The room is rented, then available again when the rental ends.</p></article>
+        </div>
+      </div>
+      <div class="foot">8 / 9</div>
+    </section>
+
+    <section class="slide">
+      <div class="bar"></div>
+      <div class="pad">
+        <p class="kicker">ROOMSTAY</p>
+        <h1>What we do next</h1>
+        <p style="color:#5e574e">Open the website and walk the same path as the diagram.</p>
+        <div class="rows">
+          <article class="row"><strong>1</strong><p>Show a room and send a booking request.</p></article>
+          <article class="row"><strong>2</strong><p>Approve it as the partner and show the bank details.</p></article>
+          <article class="row"><strong>3</strong><p>Upload a slip and open it on the partner review.</p></article>
+          <article class="row"><strong>4</strong><p>Open the payment chat, then the admin pages.</p></article>
+        </div>
+      </div>
+      <div class="foot">9 / 9</div>
+    </section>
+  </div>
+  <button class="nav prev" type="button" aria-label="Previous slide">‹</button>
+  <button class="nav next" type="button" aria-label="Next slide">›</button>
+  <p class="hint">Use the arrow keys to change slides</p>
+  <script>
+    const slides = [...document.querySelectorAll(".slide")];
+    let index = 0;
+    function show(next) {
+      index = (next + slides.length) % slides.length;
+      slides.forEach((slide, i) => slide.classList.toggle("on", i === index));
+    }
+    document.querySelector(".next").onclick = () => show(index + 1);
+    document.querySelector(".prev").onclick = () => show(index - 1);
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "ArrowRight" || event.key === " " || event.key === "PageDown") show(index + 1);
+      if (event.key === "ArrowLeft" || event.key === "PageUp") show(index - 1);
+    });
+  </script>
+</body>
+</html>

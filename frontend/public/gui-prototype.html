@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RoomStay GUI prototype</title>
+  <style>
+    :root {
+      --primary: #482bf4;
+      --tint: #f4f0ff;
+      --canvas: #f4efe8;
+      --ink: #1a1624;
+      --muted: #5e574e;
+      --line: #e6ddd2;
+      --alert: #e85d4c;
+      --white: #fffcf8;
+      --deep: #241a78;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, Arial, Helvetica, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(ellipse 70% 42% at 0% -8%, #efe8ff 0, transparent 52%),
+        radial-gradient(ellipse 55% 36% at 100% 0%, #ffe8df 0, transparent 48%),
+        var(--canvas);
+    }
+    button, a { font: inherit; }
+    button { cursor: pointer; }
+    .app { display: grid; grid-template-columns: 260px minmax(0, 1fr); min-height: 100vh; }
+    .rail {
+      position: sticky; top: 0; height: 100vh; overflow: auto;
+      padding: 22px 16px 28px; background: #fff; border-right: 1px solid var(--line);
+    }
+    .brand { font-weight: 800; letter-spacing: -0.03em; font-size: 20px; }
+    .brand span { color: var(--primary); }
+    .rail p { margin: 8px 0 18px; color: var(--muted); font-size: 13px; line-height: 1.45; }
+    .rail h2 { margin: 16px 0 8px; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+    .rail button {
+      display: block; width: 100%; text-align: left; margin-bottom: 6px;
+      border: 1px solid transparent; background: transparent; border-radius: 12px;
+      padding: 9px 10px; color: var(--ink); font-weight: 650;
+    }
+    .rail button.active, .rail button:hover { background: var(--tint); color: var(--primary); border-color: #ddd4ff; }
+    .stage { padding: 22px 22px 40px; }
+    .stage-head { display: flex; justify-content: space-between; gap: 16px; align-items: end; margin-bottom: 14px; }
+    .stage-head h1 { margin: 0; font-size: 22px; letter-spacing: -0.03em; }
+    .stage-head p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+    .flow { display: flex; flex-wrap: wrap; gap: 6px; }
+    .flow button {
+      border: 1px solid var(--line); background: #fff; border-radius: 999px; padding: 7px 10px; font-size: 12px; font-weight: 700;
+    }
+    .flow button.on { background: var(--primary); color: #fff; border-color: var(--primary); }
+    .frame {
+      display: none; overflow: hidden; border: 1px solid var(--line); border-radius: 28px;
+      background: #fff; box-shadow: 0 24px 60px rgb(42 26 74 / 8%); min-height: 720px;
+    }
+    .frame.show { display: block; }
+    .top {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      padding: 14px 22px; border-bottom: 1px solid var(--line); background: #fffcf8;
+    }
+    .logo { font-weight: 800; letter-spacing: -0.03em; }
+    .nav { display: flex; gap: 14px; color: var(--muted); font-size: 13px; font-weight: 700; }
+    .pill { border-radius: 999px; background: var(--tint); color: var(--primary); padding: 6px 10px; font-size: 12px; font-weight: 800; }
+    .hero {
+      display: grid; grid-template-columns: 1.2fr 0.8fr; min-height: 280px;
+      background: linear-gradient(116deg, #e7def8 0%, #f7f1ea 42%, #fff8f3 100%);
+    }
+    .hero-copy { padding: 36px 32px; }
+    .eyebrow { color: #6750b2; font-size: 11px; font-weight: 800; letter-spacing: 0.18em; }
+    h2.display { margin: 8px 0; font-size: 42px; line-height: 1.02; letter-spacing: -0.05em; }
+    h2.display em { font-style: normal; color: #743ed4; }
+    .search {
+      display: flex; gap: 8px; margin-top: 16px; padding: 8px; border-radius: 16px; background: #fff; border: 1px solid var(--line);
+    }
+    .search input, .field input, .field textarea, .field select {
+      width: 100%; border: 1px solid var(--line); border-radius: 12px; padding: 11px 12px; background: #fff;
+    }
+    .search input { border: 0; }
+    .btn, .btn-soft {
+      border: 0; border-radius: 12px; padding: 11px 14px; font-weight: 800;
+    }
+    .btn { background: var(--primary); color: #fff; }
+    .btn.coral { background: var(--alert); }
+    .btn-soft { background: #fff; color: var(--ink); border: 1px solid var(--line); }
+    .pad { padding: 22px; }
+    .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    .card { border: 1px solid var(--line); border-radius: 18px; overflow: hidden; background: #fff; text-align: left; padding: 0; }
+    .card img, .photo { width: 100%; height: 140px; object-fit: cover; display: block; background: #ebe4da; }
+    .card div { padding: 12px; }
+    .card strong { display: block; }
+    .muted { color: var(--muted); }
+    .price { font-weight: 800; }
+    .split { display: grid; grid-template-columns: 1.3fr 0.7fr; gap: 18px; }
+    .panel { border: 1px solid var(--line); border-radius: 18px; padding: 16px; background: #fff; }
+    .note { background: var(--tint); border-radius: 16px; padding: 14px; color: var(--muted); }
+    .status { display: inline-flex; border-radius: 999px; padding: 5px 9px; font-size: 12px; font-weight: 800; background: #fff6e7; color: #8a5a00; }
+    .status.violet { background: var(--tint); color: var(--primary); }
+    .status.green { background: #e7f6ee; color: #1d7a3f; }
+    .row { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+    .slip {
+      margin-top: 12px; border-radius: 16px; border: 1px dashed #c8b8a4; background:
+        linear-gradient(#fff, #fff) padding-box,
+        repeating-linear-gradient(0deg, transparent, transparent 22px, #f3eadf 23px);
+      padding: 16px;
+    }
+    .slip b { display: block; font-size: 18px; }
+    .chat { display: grid; gap: 8px; }
+    .bubble { max-width: 75%; border-radius: 16px; padding: 10px 12px; background: var(--canvas); }
+    .bubble.mine { margin-left: auto; background: var(--primary); color: #fff; }
+    .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 16px; }
+    .step { border: 1px solid var(--line); border-radius: 16px; padding: 12px; background: #fff; }
+    .step span { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 999px; background: var(--primary); color: #fff; font-weight: 800; }
+    .side-actions { display: grid; gap: 8px; }
+    @media (max-width: 980px) {
+      .app { grid-template-columns: 1fr; }
+      .rail { position: relative; height: auto; }
+      .hero, .split, .cards, .steps { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="rail">
+      <div class="brand">Room<span>Stay</span></div>
+      <p>Clickable GUI prototype. These are the same screens as the website, linked the way a Figma prototype is linked.</p>
+      <h2>Renter</h2>
+      <button data-go="home" class="active">1. Home</button>
+      <button data-go="room">2. Room</button>
+      <button data-go="request">3. Booking request</button>
+      <button data-go="bookings">4. My bookings</button>
+      <button data-go="deposit">5. Deposit and slip</button>
+      <h2>Partner</h2>
+      <button data-go="partner">6. Check the slip</button>
+      <h2>Admin</h2>
+      <button data-go="chat">7. Payment chat</button>
+      <button data-go="admin">8. Admin</button>
+    </aside>
+    <main class="stage">
+      <div class="stage-head">
+        <div>
+          <h1 id="screen-title">Find a room</h1>
+          <p id="screen-note">The renter starts here. Nothing is reserved yet.</p>
+        </div>
+        <div class="flow" id="flow"></div>
+      </div>
+
+      <section class="frame show" id="home">
+        <div class="top"><div class="logo">RoomStay</div><div class="nav"><span>Home</span><span>Search</span><span class="pill">Renter</span></div></div>
+        <div class="hero">
+          <div class="hero-copy">
+            <div class="eyebrow">A PLACE FOR WHAT'S NEXT</div>
+            <h2 class="display">Find your next home, <em>simply.</em></h2>
+            <p class="muted">Search condos, apartments, houses, and dormitories, then request a booking.</p>
+            <div class="search">
+              <input value="Near BTS" readonly />
+              <button class="btn coral" data-go="room">Search</button>
+            </div>
+          </div>
+          <img class="photo" alt="" src="/images/home/luxury-room.jpg" style="height:100%;min-height:280px" />
+        </div>
+        <div class="pad">
+          <div class="cards">
+            <button class="card" data-go="room">
+              <img alt="" src="/images/home/cozy-condo.jpg" />
+              <div><strong>Cozy Condo Near BTS</strong><span class="muted">Ari, Bangkok</span><div class="price">฿10,000 / month</div><span class="status green">Available</span></div>
+            </button>
+            <article class="card">
+              <img alt="" src="/images/home/modern-studio.jpg" />
+              <div><strong>Modern Studio</strong><span class="muted">Phahon Yothin</span><div class="price">฿8,500 / month</div></div>
+            </article>
+            <article class="card">
+              <img alt="" src="/images/home/garden-house.jpg" />
+              <div><strong>Garden House</strong><span class="muted">Ladprao</span><div class="price">฿15,000 / month</div><span class="status">Rented</span></div>
+            </article>
+          </div>
+          <div class="steps">
+            <div class="step"><span>1</span><strong>Find a room</strong><p class="muted">Search by place or university.</p></div>
+            <div class="step"><span>2</span><strong>Send a request</strong><p class="muted">The room stays open until approval.</p></div>
+            <div class="step"><span>3</span><strong>Upload the slip</strong><p class="muted">Pay at the bank, then upload the photo.</p></div>
+            <div class="step"><span>4</span><strong>Move in</strong><p class="muted">The partner checks the slip first.</p></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="frame" id="room">
+        <div class="top"><div class="logo">RoomStay</div><button class="btn-soft" data-go="home">Back</button></div>
+        <div class="pad split">
+          <div>
+            <img class="photo" alt="" src="/images/home/cozy-condo.jpg" style="height:280px;border-radius:18px" />
+            <h2>Cozy Condo Near BTS</h2>
+            <p class="muted">Ari, Bangkok · 1 bedroom · 1 bath · 30 m²</p>
+            <p>A furnished condo near the BTS. The renter can request a viewing, or skip it and request the booking.</p>
+          </div>
+          <aside class="panel">
+            <div class="price">฿10,000 / month</div>
+            <p class="status green">Available</p>
+            <div class="side-actions">
+              <button class="btn-soft" data-go="request">Request viewing</button>
+              <button class="btn" data-go="request">Request booking</button>
+            </div>
+            <p class="muted">A viewing does not reserve the room.</p>
+          </aside>
+        </div>
+      </section>
+
+      <section class="frame" id="request">
+        <div class="top"><div class="logo">RoomStay</div><span class="pill">Renter · Mina</span></div>
+        <div class="pad" style="max-width:640px">
+          <h2>Request booking</h2>
+          <div class="note">No deposit yet. Bank details appear only after the partner approves this request.</div>
+          <div class="field" style="margin-top:14px"><label>Preferred move-in date</label><input value="15 Dec 2026" readonly /></div>
+          <div class="field" style="margin-top:10px"><label>Message</label><textarea readonly>I need a room near campus.</textarea></div>
+          <button class="btn" style="margin-top:14px" data-go="bookings">Submit booking request</button>
+        </div>
+      </section>
+
+      <section class="frame" id="bookings">
+        <div class="top"><div class="logo">RoomStay</div><span class="pill">My bookings</span></div>
+        <div class="pad">
+          <h2>My bookings</h2>
+          <article class="panel row">
+            <div>
+              <strong>Cozy Condo Near BTS</strong>
+              <p class="muted">Move-in 15 Dec 2026</p>
+              <p class="muted">Waiting for the partner. Bank details and the slip upload appear after approval.</p>
+            </div>
+            <div>
+              <span class="status">Pending</span>
+              <button class="btn" style="margin-left:8px" data-go="deposit">After approval</button>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="frame" id="deposit">
+        <div class="top"><div class="logo">RoomStay</div><span class="pill">Deposit pending</span></div>
+        <div class="pad split">
+          <div>
+            <h2>Pay outside RoomStay</h2>
+            <p class="muted">The room is reserved. RoomStay does not take the money.</p>
+            <div class="panel">
+              <div class="row"><span>Deposit</span><strong>฿10,000</strong></div>
+              <div class="row"><span>Bank</span><strong>Demo Bank</strong></div>
+              <div class="row"><span>Account</span><strong>123-4-56789-0</strong></div>
+              <div class="row"><span>Reference</span><strong>Booking ID</strong></div>
+              <div class="row"><span>Deadline</span><strong>20 Dec 2026</strong></div>
+            </div>
+            <div class="slip">
+              <span class="muted">Transfer slip</span>
+              <b>฿10,000.00</b>
+              <span>To Demo Bank · 123-4-56789-0</span>
+              <span class="muted">Reference: booking ID</span>
+            </div>
+          </div>
+          <aside class="panel">
+            <h3>Upload payment evidence</h3>
+            <p class="muted">JPG or PNG of the transfer slip. The partner and admin will see this photo.</p>
+            <button class="btn" data-go="partner">Submit evidence</button>
+          </aside>
+        </div>
+      </section>
+
+      <section class="frame" id="partner">
+        <div class="top"><div class="logo">RoomStay</div><span class="pill">Partner · Arun</span></div>
+        <div class="pad split">
+          <div>
+            <h2>Payment evidence review</h2>
+            <p class="muted">Cozy Condo Near BTS · Renter Mina · Verification pending</p>
+            <div class="slip">
+              <span class="muted">deposit-slip.png</span>
+              <b>฿10,000.00 received</b>
+              <span>Demo Bank transfer</span>
+              <span class="muted">Note: Paid from my account today.</span>
+            </div>
+          </div>
+          <aside class="panel side-actions">
+            <p>Verification confirms the booking. The room stays reserved. It is not rented until move-in.</p>
+            <button class="btn" data-go="chat">Verify evidence</button>
+            <button class="btn-soft">Reject and ask for a new slip</button>
+            <button class="btn-soft" data-go="chat">Message admin</button>
+          </aside>
+        </div>
+      </section>
+
+      <section class="frame" id="chat">
+        <div class="top"><div class="logo">RoomStay</div><span class="pill">Payment chat</span></div>
+        <div class="pad" style="max-width:720px">
+          <h2>Message the admin</h2>
+          <p class="muted">This chat is about the deposit slip. RoomStay does not move the money.</p>
+          <div class="slip"><b>Slip on this chat</b><span class="muted">deposit-slip.png · ฿10,000</span></div>
+          <div class="chat" style="margin-top:14px">
+            <div class="bubble">Please check the Cozy Condo deposit slip.</div>
+            <div class="bubble mine">The slip matches the deposit. You can confirm the booking.</div>
+          </div>
+          <div class="search" style="margin-top:14px">
+            <input value="Ask about this payment..." readonly />
+            <button class="btn" data-go="admin">Send</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="frame" id="admin">
+        <div class="top"><div class="logo">RoomStay</div><span class="pill">Admin</span></div>
+        <div class="pad">
+          <h2>Admin</h2>
+          <div class="cards">
+            <article class="panel"><strong>Partner applications</strong><p class="muted">Approve who can list rooms.</p></article>
+            <article class="panel"><strong>Listings</strong><p class="muted">Publish or suspend a room.</p></article>
+            <button class="panel" data-go="chat" style="text-align:left"><strong>Payment chats</strong><p class="muted">Read the slip and reply. No money moves here.</p></button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script>
+    const copy = {
+      home: ["Find a room", "The renter starts here. Nothing is reserved yet."],
+      room: ["Room page", "Request a viewing or go straight to a booking request."],
+      request: ["Booking request", "Pending only. The deposit comes after the partner approves."],
+      bookings: ["My bookings", "The renter waits. The room is still available."],
+      deposit: ["Deposit and slip", "Pay at the bank, then upload the photo of the slip."],
+      partner: ["Partner review", "The partner sees the slip photo and accepts or rejects it."],
+      chat: ["Payment chat", "Partner and admin talk about the slip. The photo stays at the top."],
+      admin: ["Admin", "Applications, listings, and payment chats. RoomStay still does not move money."]
+    };
+    const order = ["home", "room", "request", "bookings", "deposit", "partner", "chat", "admin"];
+    const flow = document.getElementById("flow");
+    order.forEach((id, index) => {
+      const button = document.createElement("button");
+      button.textContent = index + 1;
+      button.dataset.go = id;
+      flow.appendChild(button);
+    });
+    function show(id) {
+      document.querySelectorAll(".frame").forEach((frame) => frame.classList.toggle("show", frame.id === id));
+      document.querySelectorAll("[data-go]").forEach((button) => button.classList.toggle("active", button.dataset.go === id));
+      document.querySelectorAll("#flow button").forEach((button) => button.classList.toggle("on", button.dataset.go === id));
+      document.getElementById("screen-title").textContent = copy[id][0];
+      document.getElementById("screen-note").textContent = copy[id][1];
+    }
+    document.body.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-go]");
+      if (!button) return;
+      show(button.dataset.go);
+    });
+  </script>
+</body>
+</html>
