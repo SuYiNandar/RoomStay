@@ -1,4 +1,4 @@
-import { assertViewingSlot, canRequestViewing, decideViewing } from "../domain/rules.js";
+import { assertViewingSlot, canRequestViewing, cancelViewingState, decideViewing } from "../domain/rules.js";
 import { HttpError } from "../http.js";
 import { assertVisibleProperty, requireApprovedPartner } from "./shared.js";
 
@@ -70,6 +70,29 @@ export async function reviewViewing(db, user, id, decision) {
       title: "Viewing update",
       message: viewingMessage(updated),
       link: `/viewings/${updated.id}`,
+      relatedViewingId: updated.id,
+      relatedPropertyId: updated.propertyId,
+    },
+  });
+  return updated;
+}
+
+export async function cancelViewing(db, user, id) {
+  const viewing = await db.viewing.findUnique({ where: { id }, include });
+  if (!viewing || viewing.renterId !== user.id) throw new HttpError(404, "Viewing not found.");
+  const roomBefore = viewing.property.roomStatus;
+  const next = cancelViewingState(viewing);
+  const updated = await db.viewing.update({ where: { id }, data: next, include });
+  if (updated.property.roomStatus !== roomBefore) {
+    throw new HttpError(500, "Cancelling a viewing must not change room status.");
+  }
+  await db.notification.create({
+    data: {
+      userId: updated.property.partnerUserId,
+      type: "VIEWING_UPDATE",
+      title: "Viewing cancelled",
+      message: `${user.fullName} cancelled the viewing for ${updated.property.title}.`,
+      link: `/partner/viewings/${updated.id}`,
       relatedViewingId: updated.id,
       relatedPropertyId: updated.propertyId,
     },

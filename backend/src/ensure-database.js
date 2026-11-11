@@ -31,6 +31,20 @@ function supabaseUrl(raw) {
   return url.toString();
 }
 
+async function ensureViewingCancelled() {
+  const prismaCli = path.join(root, "node_modules/prisma/build/index.js");
+  try {
+    await execFileAsync(process.execPath, [prismaCli, "db", "execute", "--stdin"], {
+      cwd: root,
+      env: process.env,
+      input: `ALTER TYPE "ViewingStatus" ADD VALUE IF NOT EXISTS 'CANCELLED';`,
+    });
+  } catch (error) {
+    const message = String(error.stderr || error.message || "unknown error").replace(/postgres(?:ql)?:\/\/\S+/gi, "[url]");
+    console.error(`ViewingStatus CANCELLED was not added: ${message.split("\n")[0]}`);
+  }
+}
+
 async function pushSchema(acceptDataLoss) {
   const args = [
     path.join(root, "node_modules/prisma/build/index.js"),
@@ -46,6 +60,7 @@ export async function ensureDatabase(options = {}) {
   if (!options.forceEmbedded && process.env.DATABASE_URL) {
     const supabase = isSupabase(process.env.DATABASE_URL);
     if (supabase) process.env.DATABASE_URL = supabaseUrl(process.env.DATABASE_URL);
+    await ensureViewingCancelled();
     // Production schema changes are an explicit deployment step.
     if (process.env.NODE_ENV !== "production") await pushSchema(false);
     return { embedded: false, provider: supabase ? "supabase" : "postgres", async stop() {} };
@@ -59,6 +74,7 @@ export async function ensureDatabase(options = {}) {
     const sql = await readFile(path.join(root, "prisma/init.sql"), "utf8");
     await db.exec(sql);
   }
+  await db.exec(`ALTER TYPE "ViewingStatus" ADD VALUE IF NOT EXISTS 'CANCELLED'`);
   const paymentChat = await db.query(`SELECT to_regclass('public."PaymentInquiry"') AS name`);
   if (!paymentChat.rows[0]?.name) {
     const sql = await readFile(path.join(root, "prisma/payment-chat.sql"), "utf8");

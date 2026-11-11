@@ -35,6 +35,12 @@ export async function liveRequestViewing(input) {
     changed("roomstay:viewings-changed");
     return data.viewing;
 }
+export async function liveCancelViewing(id) {
+    const data = await api(`/api/viewings/${id}/cancel`, { method: "POST" });
+    upsertLive("viewings", data.viewing);
+    changed("roomstay:viewings-changed");
+    return data.viewing;
+}
 export async function liveDecideViewing(id, decision) {
     const data = await api(`/api/partner/viewings/${id}/decision`, {
         method: "POST",

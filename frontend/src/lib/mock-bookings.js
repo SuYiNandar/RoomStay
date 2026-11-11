@@ -214,6 +214,26 @@ export function saveMockReview(review) {
         // Private browsing may block localStorage.
     }
 }
+export const renterCancellableBookingStatuses = ["PENDING", "DEPOSIT_PENDING", "VERIFICATION_PENDING", "CONFIRMED"];
+export function cancelMockBooking(id, userId) {
+    if (liveEnabled())
+        return null;
+    const requests = readMockBookingRequests();
+    const existing = requests.find((booking) => booking.id === id);
+    if (!existing || existing.renterUserId !== userId || !renterCancellableBookingStatuses.includes(existing.status))
+        return null;
+    const updated = {
+        ...existing,
+        status: "CANCELLED",
+        cancelledAt: new Date().toISOString(),
+        cancelledById: userId,
+    };
+    window.localStorage.setItem(mockBookingRequestsKey, JSON.stringify(requests.map((booking) => booking.id === id ? updated : booking)));
+    if (["DEPOSIT_PENDING", "VERIFICATION_PENDING", "CONFIRMED"].includes(existing.status))
+        setMockRoomStatus(existing.propertyId, "AVAILABLE");
+    window.dispatchEvent(new Event("roomstay:bookings-changed"));
+    return updated;
+}
 export function updateMockBookingRequest(updatedBooking) {
     const requests = readMockBookingRequests();
     window.localStorage.setItem(mockBookingRequestsKey, JSON.stringify(requests.map((booking) => booking.id === updatedBooking.id ? updatedBooking : booking)));

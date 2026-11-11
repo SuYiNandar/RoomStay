@@ -8,7 +8,10 @@ export class ApiError extends Error {
 }
 export const tokenStorageKey = "roomstay.token";
 export function apiBase() {
-    return process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+    if (typeof window !== "undefined") {
+        return "";
+    }
+    return process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || "https://roomstay-rcxc.onrender.com";
 }
 export function authToken() {
     if (typeof window === "undefined")

@@ -39,6 +39,7 @@ enum ViewingStatus {
   APPROVED
   RESCHEDULE_REQUESTED
   DECLINED
+  CANCELLED
 }
 
 enum BookingStatus {

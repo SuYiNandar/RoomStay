@@ -6,13 +6,15 @@ import { viewingTimeOptions } from "@/lib/viewing-time";
 import { properties } from "@/mocks/properties";
 export const mockViewingRequestsKey = "roomstay.mockViewingRequests";
 export const mockViewingsChangedEvent = "roomstay:viewings-changed";
-export const viewingStatuses = ["REQUESTED", "APPROVED", "RESCHEDULE_REQUESTED", "DECLINED"];
+export const viewingStatuses = ["REQUESTED", "APPROVED", "RESCHEDULE_REQUESTED", "DECLINED", "CANCELLED"];
 export const viewingStatusLabels = {
     REQUESTED: "Requested",
     APPROVED: "Approved",
     RESCHEDULE_REQUESTED: "Reschedule Requested",
     DECLINED: "Declined",
+    CANCELLED: "Cancelled",
 };
+export const renterCancellableViewingStatuses = ["REQUESTED", "APPROVED", "RESCHEDULE_REQUESTED"];
 function normalizeViewing(value) {
     if (!value || typeof value !== "object")
         return null;
@@ -103,5 +105,17 @@ export function reviewMockViewing(id, user, decision) {
     catch {
         // A notification failure must not undo or misreport a saved decision.
     }
+    return updated;
+}
+export function cancelMockViewing(id, userId) {
+    if (liveEnabled())
+        return null;
+    const requests = readMockViewingRequests();
+    const existing = requests.find((request) => request.id === id);
+    if (!existing || existing.renterId !== userId || !renterCancellableViewingStatuses.includes(existing.status))
+        return null;
+    const updated = { ...existing, status: "CANCELLED", updatedAt: new Date().toISOString() };
+    window.localStorage.setItem(mockViewingRequestsKey, JSON.stringify(requests.map((request) => request.id === id ? updated : request)));
+    window.dispatchEvent(new Event(mockViewingsChangedEvent));
     return updated;
 }

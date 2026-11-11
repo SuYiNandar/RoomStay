@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   approveBookingState,
   cancelBookingState,
+  cancelViewingState,
   completeRentalState,
   createReviewState,
   declineBookingState,
@@ -109,6 +110,13 @@ test("a review is allowed once, only after completion", () => {
   const review = createReviewState({ booking: { status: "COMPLETED" }, rating: 5, comment: "Great stay" });
   assert.equal(review.rating, 5);
   assert.throws(() => createReviewState({ booking: { status: "COMPLETED" }, existingReview: { id: "r1" }, rating: 4, comment: "Again" }), /already/);
+});
+
+test("a renter can cancel an open viewing without a room change", () => {
+  const cancelled = cancelViewingState({ status: "APPROVED" });
+  assert.equal(cancelled.status, "CANCELLED");
+  assert.equal(cancelled.roomStatus, undefined);
+  assert.throws(() => cancelViewingState({ status: "DECLINED" }), /cannot be cancelled/);
 });
 
 test("viewing decisions do not describe a room change", () => {

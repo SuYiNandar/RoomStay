@@ -54,7 +54,7 @@ import {
   sendRenterPaymentMessage,
 } from "./services/payment-chat.js";
 import { getUser, listUsers, moderateReview, reviewReport, submitReport } from "./services/moderation.js";
-import { getViewingForUser, listViewingsForPartner, listViewingsForUser, requestViewing, reviewViewing } from "./services/viewings.js";
+import { cancelViewing, getViewingForUser, listViewingsForPartner, listViewingsForUser, requestViewing, reviewViewing } from "./services/viewings.js";
 import { assertVisibleProperty, currentCapability, requireApprovedPartner, sweepExpiredDeposits, bookingInclude } from "./services/shared.js";
 import {
   applicationJson,
@@ -236,6 +236,10 @@ export function createApp() {
 
   app.get("/api/viewings/:id", requireUser, asyncRoute(async (req, res) => {
     res.json({ viewing: viewingJson(await getViewingForUser(prisma, req.user.id, req.params.id)) });
+  }));
+
+  app.post("/api/viewings/:id/cancel", requireUser, asyncRoute(async (req, res) => {
+    res.json({ viewing: viewingJson(await cancelViewing(prisma, req.user, req.params.id)) });
   }));
 
   app.post("/api/bookings", requireUser, asyncRoute(async (req, res) => {

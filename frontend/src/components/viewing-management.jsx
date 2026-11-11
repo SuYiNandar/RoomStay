@@ -4,14 +4,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { DatePicker } from "@/components/date-picker";
-import { liveDecideViewing } from "@/lib/live-actions";
+import { ApiError } from "@/lib/api";
+import { liveCancelViewing, liveDecideViewing } from "@/lib/live-actions";
 import { liveEnabled } from "@/lib/live-store";
 import { useMockAuth } from "@/lib/mock-auth";
 import { formatBookingDate } from "@/lib/format-date";
 import { findMockListingById, mockListingsChangedEvent } from "@/lib/mock-listings";
 import { usePublicProperty, publishedListingFallbackImage } from "@/lib/published-listings";
 import { formatViewingTime, isLegacyViewingTime, viewingTimeOptions, todayDateString } from "@/lib/viewing-time";
-import { mockViewingsChangedEvent, partnerOwnsViewing, readMockViewingRequests, reviewMockViewing, viewingStatuses, viewingStatusLabels, } from "@/lib/mock-viewings";
+import { cancelMockViewing, mockViewingsChangedEvent, partnerOwnsViewing, readMockViewingRequests, renterCancellableViewingStatuses, reviewMockViewing, viewingStatuses, viewingStatusLabels, } from "@/lib/mock-viewings";
 const panel = "rounded-2xl border border-line bg-white p-5 shadow-sm shadow-ink/5 md:p-7";
 const primaryButton = "inline-flex min-h-11 items-center justify-center rounded-lg bg-primary px-4 text-sm font-semibold text-white btn-primary";
 const secondaryButton = "inline-flex min-h-11 items-center justify-center rounded-lg border border-line bg-white px-4 text-sm font-semibold text-ink btn-secondary";
@@ -71,7 +72,8 @@ function ViewingBadge({ status }) {
     const tone = status === "APPROVED" ? "bg-[#e7f6ee] text-[#1d7a3f] ring-[#c9e9d4]"
         : status === "DECLINED" ? "bg-red-50 text-alert ring-red-100"
             : status === "RESCHEDULE_REQUESTED" ? "bg-[#fdf3e3] text-[#8a5a00] ring-[#eed9ae]"
-                : "bg-primary-tint text-primary ring-primary/25";
+                : status === "CANCELLED" ? "bg-canvas text-ink-secondary ring-line"
+                    : "bg-primary-tint text-primary ring-primary/25";
     return <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${tone}`}>{viewingStatusLabels[status]}</span>;
 }
 function ViewingTime({ value }) {
@@ -151,6 +153,41 @@ export function ViewingsList({ partner = false }) {
           </div>)}
       </section>
     </ViewingAccess>);
+}
+function RenterCancelViewing({ request }) {
+    const { user } = useMockAuth();
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState("");
+    if (!renterCancellableViewingStatuses.includes(request.status))
+        return null;
+    async function cancel() {
+        if (!user || busy)
+            return;
+        if (!window.confirm("Cancel this viewing? The room stays in its current status."))
+            return;
+        setBusy(true);
+        setError("");
+        try {
+            if (liveEnabled())
+                await liveCancelViewing(request.id);
+            else if (!cancelMockViewing(request.id, user.id))
+                throw new Error("This viewing cannot be cancelled.");
+        }
+        catch (caught) {
+            setError(caught instanceof ApiError ? caught.message : "This viewing could not be cancelled.");
+        }
+        finally {
+            setBusy(false);
+        }
+    }
+    return (<section className={panel}>
+      <h2 className="text-xl font-semibold">Cancel this viewing</h2>
+      <p className="mt-2 text-sm leading-6 text-ink-secondary">Viewing is optional. Cancelling it does not change the room or any booking.</p>
+      <button type="button" onClick={cancel} disabled={busy} className="mt-4 inline-flex min-h-11 items-center justify-center rounded-lg border border-alert bg-white px-4 text-sm font-semibold text-alert disabled:opacity-70">
+        {busy ? "Cancelling..." : "Cancel viewing"}
+      </button>
+      {error && <p role="alert" className="mt-2 text-sm text-alert">{error}</p>}
+    </section>);
 }
 function ViewingReviewActions({ request }) {
     const { user } = useMockAuth();
@@ -245,6 +282,7 @@ export function ViewingDetails({ viewingId, partner = false }) {
         <h1 className="text-3xl font-semibold tracking-[-0.04em]">{partner ? "Review Viewing" : "Viewing Details"}</h1>
         {request ? <>
           <ViewingCard request={request} partner={partner} details/>
+          {!partner && <RenterCancelViewing key={request.id} request={request}/>}
           {partner && <ViewingReviewActions key={request.id} request={request}/>}
         </> : <div className={panel}><h2 className="text-lg font-semibold">Viewing request not found</h2><p className="mt-2 text-sm text-ink-secondary">This viewing is unavailable or does not belong to your account.</p></div>}
       </div>

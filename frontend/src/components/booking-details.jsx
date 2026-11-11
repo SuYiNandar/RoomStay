@@ -5,7 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { EvidenceSlip } from "@/components/evidence-slip";
-import { bookingStatusPillTone, findMockBookingRequest, findMockPaymentEvidenceForBooking, findMockReviewForBooking, statusLabel } from "@/lib/mock-bookings";
+import { ApiError } from "@/lib/api";
+import { liveCancelBooking } from "@/lib/live-actions";
+import { liveEnabled } from "@/lib/live-store";
+import { bookingStatusPillTone, cancelMockBooking, findMockBookingRequest, findMockPaymentEvidenceForBooking, findMockReviewForBooking, renterCancellableBookingStatuses, statusLabel } from "@/lib/mock-bookings";
 import { formatBookingDate } from "@/lib/format-date";
 import { usePublicProperties } from "@/lib/published-listings";
 import { useMockAuth } from "@/lib/mock-auth";
@@ -68,6 +71,8 @@ export function BookingDetails({ bookingId }) {
     const router = useRouter();
     const { user, isReady } = useMockAuth();
     const [booking, setBooking] = useState(undefined);
+    const [cancelling, setCancelling] = useState(false);
+    const [cancelError, setCancelError] = useState("");
     const [now, setNow] = useState(() => Date.now());
     const { properties: publicProperties } = usePublicProperties();
     useEffect(() => {
@@ -118,6 +123,29 @@ export function BookingDetails({ bookingId }) {
     const review = findMockReviewForBooking(booking.id);
     const evidenceRejected = evidence?.status === "REJECTED";
     const evidenceVerified = evidence?.status === "VERIFIED";
+    const canCancel = renterCancellableBookingStatuses.includes(booking.status);
+    async function cancelBooking() {
+        if (!user || cancelling)
+            return;
+        if (!window.confirm("Cancel this booking? If the room is reserved for you, it becomes available again."))
+            return;
+        setCancelling(true);
+        setCancelError("");
+        try {
+            const updated = liveEnabled()
+                ? await liveCancelBooking(booking.id)
+                : cancelMockBooking(booking.id, user.id);
+            if (!updated)
+                throw new Error("This booking cannot be cancelled.");
+            setBooking(updated);
+        }
+        catch (error) {
+            setCancelError(error instanceof ApiError ? error.message : "This booking could not be cancelled.");
+        }
+        finally {
+            setCancelling(false);
+        }
+    }
     return (<div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-8">
       <section className="rounded-xl border border-line bg-white p-5 shadow-sm md:p-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -327,6 +355,13 @@ export function BookingDetails({ bookingId }) {
               <dd className="mt-1 leading-6">{booking.declineReason}</dd>
             </div>)}
         </dl>
+
+        {canCancel && (<div className="mt-5">
+            <button type="button" onClick={cancelBooking} disabled={cancelling} className="inline-flex min-h-11 items-center justify-center rounded-lg border border-alert bg-white px-5 text-sm font-semibold text-alert disabled:opacity-70">
+              {cancelling ? "Cancelling..." : "Cancel booking"}
+            </button>
+            {cancelError && <p role="alert" className="mt-2 text-sm text-alert">{cancelError}</p>}
+          </div>)}
 
         <Link href="/bookings" className="mt-5 inline-flex min-h-11 items-center justify-center rounded-lg border border-line bg-white px-5 text-sm font-semibold text-ink btn-secondary">
           Back to My Bookings

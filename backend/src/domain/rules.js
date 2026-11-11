@@ -65,6 +65,12 @@ export function canRequestBooking(roomStatus) {
   return roomStatus === "AVAILABLE";
 }
 
+export function cancelViewingState(viewing) {
+  const open = ["REQUESTED", "APPROVED", "RESCHEDULE_REQUESTED"];
+  if (!open.includes(viewing.status)) throw new HttpError(409, "This viewing cannot be cancelled.");
+  return { status: "CANCELLED" };
+}
+
 export function decideViewing(viewing, decision) {
   if (viewing.status !== "REQUESTED") {
     throw new HttpError(409, "Only a requested viewing can be reviewed.");
