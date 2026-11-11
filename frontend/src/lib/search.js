@@ -6,15 +6,15 @@ export function initialSearchFilters(params = {}) {
         query: value("q"),
         location: value("location"),
         roomType: propertyTypes.some((propertyType) => propertyType === type) ? type : "",
-        minPrice: "5000",
-        maxPrice: "",
-        bedrooms: "",
-        facilities: [],
-        availableOnly: false,
+        minPrice: typeof params.min === "string" ? params.min : "5000",
+        maxPrice: value("max"),
+        bedrooms: value("bedrooms"),
+        facilities: value("facilities").split(",").map((item) => item.trim()).filter(Boolean),
+        availableOnly: value("availableOnly") === "true",
         petFriendly: value("petFriendly") === "true",
         nearUniversity: value("nearUniversity") === "true",
         nearTransit: value("nearTransit") === "true",
-        sort: "default",
+        sort: ["price-asc", "price-desc"].includes(value("sort")) ? value("sort") : "default",
     };
 }
 export const minPriceOptions = ["5000", "8000", "10000", "15000", "20000", "30000"];
@@ -54,4 +54,18 @@ export function filterProperties(properties, filters) {
     if (filters.sort === "price-desc")
         results.sort((a, b) => b.price - a.price);
     return results;
+}
+
+export function searchFiltersQuery(filters) {
+    const params = new URLSearchParams();
+    const fields = { q: filters.query, location: filters.location, type: filters.roomType,
+        min: filters.minPrice, max: filters.maxPrice, bedrooms: filters.bedrooms,
+        facilities: filters.facilities.join(","), sort: filters.sort };
+    for (const [key, value] of Object.entries(fields)) {
+        if (key === "min" ? value !== "5000" : value && value !== "default") params.set(key, value);
+    }
+    for (const key of ["availableOnly", "petFriendly", "nearUniversity", "nearTransit"]) {
+        if (filters[key]) params.set(key, "true");
+    }
+    return params.toString();
 }

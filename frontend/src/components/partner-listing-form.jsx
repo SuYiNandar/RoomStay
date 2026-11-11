@@ -225,7 +225,8 @@ export function PartnerListingForm({ listingId }) {
                     bathrooms: Number(bathrooms),
                     sizeSqm: Number(size),
                     facilities: selectedFacilities,
-                    photos,
+                    keptPhotos,
+                    files: newPhotos,
                     houseRules,
                 }, listingStatus === "PENDING_REVIEW");
                 router.push("/partner/listings");
@@ -469,7 +470,7 @@ export function PartnerListingForm({ listingId }) {
               Photos <span className="text-alert">*</span>
             </label>
             <input id="listing-photos" type="file" accept=".jpg,.jpeg,.png" multiple onChange={handlePhotoChange} className="mt-2 block w-full text-sm text-ink-secondary file:mr-4 file:rounded-lg file:border-0 file:bg-primary file:px-4 file:py-2.5 file:text-sm file:font-semibold file:text-white"/>
-            <p className="mt-2 text-xs text-ink-secondary">JPG, JPEG, or PNG. Only file names are stored; images are never uploaded.</p>
+            <p className="mt-2 text-xs text-ink-secondary">JPG, JPEG, or PNG. Up to 8 photos, 8 MB per photo.</p>
             {keptPhotos.length > 0 && (<ul className="mt-3 grid gap-1.5">
                 {keptPhotos.map((photo) => (<li key={photo.name} className="flex items-center justify-between gap-2 rounded-lg bg-canvas px-3 py-2 text-sm text-ink-secondary">
                     <span className="min-w-0 truncate">{photo.name}</span>

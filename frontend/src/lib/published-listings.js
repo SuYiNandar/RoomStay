@@ -85,6 +85,7 @@ export function findPublicProperty(propertyId) {
 export function usePublicProperties() {
     const [published, setPublished] = useState(null);
     const [apiProperties, setApiProperties] = useState(cachedApiProperties());
+    const [catalogLoaded, setCatalogLoaded] = useState(cachedApiProperties() !== null);
     useEffect(() => {
         function loadPublished() {
             setPublished(readPublishedListingProperties());
@@ -96,19 +97,26 @@ export function usePublicProperties() {
                 if (active)
                     setApiProperties(next);
             })
-                .catch(() => undefined);
+                .catch(() => undefined)
+                .finally(() => {
+                if (active) setCatalogLoaded(true);
+            });
         }
         function refreshCatalog() {
             loadPublished();
             loadCatalog();
         }
         loadCatalog();
+        const interval = window.setInterval(loadCatalog, 15000);
+        window.addEventListener("focus", loadCatalog);
         const timeout = window.setTimeout(loadPublished, 0);
         window.addEventListener(mockListingsChangedEvent, refreshCatalog);
         window.addEventListener(mockPartnerApplicationsChangedEvent, refreshCatalog);
         window.addEventListener("storage", loadPublished);
         return () => {
             active = false;
+            window.clearInterval(interval);
+            window.removeEventListener("focus", loadCatalog);
             window.clearTimeout(timeout);
             window.removeEventListener(mockListingsChangedEvent, refreshCatalog);
             window.removeEventListener(mockPartnerApplicationsChangedEvent, refreshCatalog);
@@ -118,7 +126,7 @@ export function usePublicProperties() {
     const merged = useMemo(() => (published === null ? properties : [...properties, ...published]), [published]);
     if (apiProperties)
         return { properties: apiProperties, isReady: true };
-    return { properties: merged, isReady: published !== null };
+    return { properties: merged, isReady: published !== null && catalogLoaded };
 }
 // Single-property lookup. Returns the static property synchronously when
 // known; otherwise undefined while published listings load, then the

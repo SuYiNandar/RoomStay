@@ -65,12 +65,14 @@ export function AdminDashboard() {
         window.addEventListener(mockPartnerApplicationsChangedEvent, loadData);
         window.addEventListener(mockListingsChangedEvent, loadData);
         window.addEventListener(mockReportsChangedEvent, loadData);
+        window.addEventListener("roomstay:bookings-changed", loadData);
         window.addEventListener("storage", loadData);
         return () => {
             window.clearTimeout(timeout);
             window.removeEventListener(mockPartnerApplicationsChangedEvent, loadData);
             window.removeEventListener(mockListingsChangedEvent, loadData);
             window.removeEventListener(mockReportsChangedEvent, loadData);
+            window.removeEventListener("roomstay:bookings-changed", loadData);
             window.removeEventListener("storage", loadData);
         };
     }, []);

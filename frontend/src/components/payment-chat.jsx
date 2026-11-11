@@ -39,6 +39,8 @@ export function PaymentChat({ bookingId, inquiryId, audience = "renter" }) {
                 ? `/api/partner/bookings/${bookingId}/payment-chat`
                 : `/api/bookings/${bookingId}/payment-chat`;
         const bookingPath = admin ? null : partner ? `/api/partner/bookings/${bookingId}` : `/api/bookings/${bookingId}`;
+        function refresh() {
+        if (document.visibilityState === "hidden") return;
         Promise.all([api(path), bookingPath ? api(bookingPath) : Promise.resolve(null)])
             .then(([data, bookingData]) => {
             if (!active)
@@ -50,7 +52,13 @@ export function PaymentChat({ bookingId, inquiryId, audience = "renter" }) {
             if (active)
                 setError(caught instanceof ApiError ? caught.message : "The payment chat could not be opened.");
         });
+        }
+        refresh();
+        const interval = window.setInterval(refresh, 15000);
+        window.addEventListener("focus", refresh);
         return () => {
+            window.clearInterval(interval);
+            window.removeEventListener("focus", refresh);
             active = false;
         };
     }, [admin, bookingId, inquiryId, isReady, partner, user]);
@@ -120,6 +128,8 @@ export function AdminPaymentChatList() {
         if (!isReady || user?.role !== "ADMIN")
             return undefined;
         let active = true;
+        function refresh() {
+        if (document.visibilityState === "hidden") return;
         api("/api/admin/payment-chats")
             .then((data) => {
             if (active)
@@ -129,7 +139,13 @@ export function AdminPaymentChatList() {
             if (active)
                 setError(caught instanceof ApiError ? caught.message : "Payment chats could not be loaded.");
         });
+        }
+        refresh();
+        const interval = window.setInterval(refresh, 15000);
+        window.addEventListener("focus", refresh);
         return () => {
+            window.clearInterval(interval);
+            window.removeEventListener("focus", refresh);
             active = false;
         };
     }, [isReady, user]);
@@ -161,6 +177,8 @@ export function PartnerPaymentChatList() {
         if (!isReady || !user?.isPartner)
             return undefined;
         let active = true;
+        function refresh() {
+        if (document.visibilityState === "hidden") return;
         api("/api/partner/payment-chats")
             .then((data) => {
             if (active)
@@ -170,7 +188,13 @@ export function PartnerPaymentChatList() {
             if (active)
                 setError(caught instanceof ApiError ? caught.message : "Payment chats could not be loaded.");
         });
+        }
+        refresh();
+        const interval = window.setInterval(refresh, 15000);
+        window.addEventListener("focus", refresh);
         return () => {
+            window.clearInterval(interval);
+            window.removeEventListener("focus", refresh);
             active = false;
         };
     }, [isReady, user]);

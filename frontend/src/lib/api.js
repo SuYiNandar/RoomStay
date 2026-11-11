@@ -38,3 +38,17 @@ export async function api(path, init = {}) {
         throw new ApiError(response.status, data.error ?? "Request failed.");
     return data;
 }
+
+export async function apiBlob(path, init = {}) {
+    if (!path?.startsWith("/api/")) throw new Error("Invalid private file URL.");
+    const token = authToken();
+    const response = await fetch(`${apiBase()}${path}`, { ...init, cache: "no-store", headers: token ? { authorization: `Bearer ${token}` } : {} });
+    if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new ApiError(response.status, data.error || "File could not be loaded.");
+    }
+    return response.blob();
+}
+export function publicImageUrl(src) {
+    return src?.startsWith("/uploads/listings/") ? `${apiBase()}${src}` : src;
+}

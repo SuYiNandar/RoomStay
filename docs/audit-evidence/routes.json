@@ -1,0 +1,247 @@
+[
+  {
+    "route": "/admin/audit-logs",
+    "url": "/admin/audit-logs",
+    "status": 200
+  },
+  {
+    "route": "/admin/listings/[id]",
+    "url": "/admin/listings/cozy-condo",
+    "status": 200
+  },
+  {
+    "route": "/admin/listings",
+    "url": "/admin/listings",
+    "status": 200
+  },
+  {
+    "route": "/admin",
+    "url": "/admin",
+    "status": 200
+  },
+  {
+    "route": "/admin/partner-applications/[id]",
+    "url": "/admin/partner-applications/cozy-condo",
+    "status": 200
+  },
+  {
+    "route": "/admin/partner-applications",
+    "url": "/admin/partner-applications",
+    "status": 200
+  },
+  {
+    "route": "/admin/payment-chats/[id]",
+    "url": "/admin/payment-chats/cozy-condo",
+    "status": 200
+  },
+  {
+    "route": "/admin/payment-chats",
+    "url": "/admin/payment-chats",
+    "status": 200
+  },
+  {
+    "route": "/admin/reports/[id]",
+    "url": "/admin/reports/cozy-condo",
+    "status": 200
+  },
+  {
+    "route": "/admin/reports",
+    "url": "/admin/reports",
+    "status": 200
+  },
+  {
+    "route": "/admin/reviews/[id]",
+    "url": "/admin/reviews/cozy-condo",
+    "status": 200
+  },
+  {
+    "route": "/admin/reviews",
+    "url": "/admin/reviews",
+    "status": 200
+  },
+  {
+    "route": "/admin/users/[id]",
+    "url": "/admin/users/cozy-condo",
+    "status": 200
+  },
+  {
+    "route": "/admin/users",
+    "url": "/admin/users",
+    "status": 200
+  },
+  {
+    "route": "/become-a-partner",
+    "url": "/become-a-partner",
+    "status": 200
+  },
+  {
+    "route": "/bookings/[id]",
+    "url": "/bookings/cozy-condo",
+    "status": 200
+  },
+  {
+    "route": "/bookings/[id]/payment-chat",
+    "url": "/bookings/cozy-condo/payment-chat",
+    "status": 200
+  },
+  {
+    "route": "/bookings/[id]/review",
+    "url": "/bookings/cozy-condo/review",
+    "status": 200
+  },
+  {
+    "route": "/bookings/[id]/upload-evidence",
+    "url": "/bookings/cozy-condo/upload-evidence",
+    "status": 200
+  },
+  {
+    "route": "/bookings",
+    "url": "/bookings",
+    "status": 200
+  },
+  {
+    "route": "/favorites",
+    "url": "/favorites",
+    "status": 200
+  },
+  {
+    "route": "/login",
+    "url": "/login",
+    "status": 200
+  },
+  {
+    "route": "/messages/[conversationId]",
+    "url": "/messages/audit-missing",
+    "status": 200
+  },
+  {
+    "route": "/messages",
+    "url": "/messages",
+    "status": 200
+  },
+  {
+    "route": "/notifications",
+    "url": "/notifications",
+    "status": 200
+  },
+  {
+    "route": "/",
+    "url": "/",
+    "status": 200
+  },
+  {
+    "route": "/partner/bookings/[id]",
+    "url": "/partner/bookings/cozy-condo",
+    "status": 200
+  },
+  {
+    "route": "/partner/bookings/[id]/payment-chat",
+    "url": "/partner/bookings/cozy-condo/payment-chat",
+    "status": 200
+  },
+  {
+    "route": "/partner/bookings",
+    "url": "/partner/bookings",
+    "status": 200
+  },
+  {
+    "route": "/partner/listings/new",
+    "url": "/partner/listings/new",
+    "status": 200
+  },
+  {
+    "route": "/partner/listings",
+    "url": "/partner/listings",
+    "status": 200
+  },
+  {
+    "route": "/partner/messages/[conversationId]",
+    "url": "/partner/messages/audit-missing",
+    "status": 200
+  },
+  {
+    "route": "/partner/messages",
+    "url": "/partner/messages",
+    "status": 200
+  },
+  {
+    "route": "/partner/notifications",
+    "url": "/partner/notifications",
+    "status": 200
+  },
+  {
+    "route": "/partner",
+    "url": "/partner",
+    "status": 200
+  },
+  {
+    "route": "/partner/payment-chats",
+    "url": "/partner/payment-chats",
+    "status": 200
+  },
+  {
+    "route": "/partner/profile",
+    "url": "/partner/profile",
+    "status": 200
+  },
+  {
+    "route": "/partner/reviews",
+    "url": "/partner/reviews",
+    "status": 200
+  },
+  {
+    "route": "/partner/viewings/[id]",
+    "url": "/partner/viewings/cozy-condo",
+    "status": 200
+  },
+  {
+    "route": "/partner/viewings",
+    "url": "/partner/viewings",
+    "status": 200
+  },
+  {
+    "route": "/partner-application",
+    "url": "/partner-application",
+    "status": 200
+  },
+  {
+    "route": "/profile",
+    "url": "/profile",
+    "status": 200
+  },
+  {
+    "route": "/properties/[id]",
+    "url": "/properties/cozy-condo",
+    "status": 200
+  },
+  {
+    "route": "/properties/[id]/request-booking",
+    "url": "/properties/cozy-condo/request-booking",
+    "status": 200
+  },
+  {
+    "route": "/properties/[id]/request-viewing",
+    "url": "/properties/cozy-condo/request-viewing",
+    "status": 200
+  },
+  {
+    "route": "/register",
+    "url": "/register",
+    "status": 200
+  },
+  {
+    "route": "/search",
+    "url": "/search",
+    "status": 200
+  },
+  {
+    "route": "/viewings/[id]",
+    "url": "/viewings/cozy-condo",
+    "status": 200
+  },
+  {
+    "route": "/viewings",
+    "url": "/viewings",
+    "status": 200
+  }
+]

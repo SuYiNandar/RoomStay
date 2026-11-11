@@ -1,3 +1,4 @@
+import { bookingTransaction } from "./locking.js";
 import { HOLDING_BOOKING_STATUSES } from "../domain/rules.js";
 import { HttpError } from "../http.js";
 
@@ -56,7 +57,7 @@ export async function sweepExpiredDeposits(db, now = new Date()) {
     where: { status: "DEPOSIT_PENDING", paymentDeadline: { lte: now } },
   });
   for (const booking of due) {
-    await db.$transaction(async (tx) => {
+    await bookingTransaction(db, booking.id, async (tx) => {
       const current = await tx.booking.findUnique({ where: { id: booking.id } });
       if (!current || current.status !== "DEPOSIT_PENDING" || !current.paymentDeadline || current.paymentDeadline > now) return;
       await tx.booking.update({ where: { id: current.id }, data: { status: "EXPIRED" } });
@@ -99,6 +100,7 @@ export function ownsProperty(property, userId) {
 }
 
 export async function assertVisibleProperty(db, propertyId) {
+  if (typeof propertyId !== "string" || !propertyId.trim()) throw new HttpError(400, "Property ID is required.");
   const partnerIds = await visiblePartnerIds(db);
   const property = await db.property.findFirst({
     where: { id: propertyId, listingStatus: "PUBLISHED", partnerUserId: { in: partnerIds } },

@@ -1,4 +1,5 @@
 "use client";
+import { PrivateFileLink } from "@/components/private-file-link";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ApiError } from "@/lib/api";
@@ -184,11 +185,11 @@ export function AdminPartnerApplicationReview({ applicationId }) {
         </div>
         <div>
           <dt className="font-medium text-ink">ID document</dt>
-          <dd className="mt-1">{application.idDocumentName} ({application.idDocumentType})</dd>
+          <dd className="mt-1"><PrivateFileLink url={application.idDocumentUrl} name={application.idDocumentName}>{application.idDocumentName}</PrivateFileLink> ({application.idDocumentType})</dd>
         </div>
         <div>
           <dt className="font-medium text-ink">Ownership document</dt>
-          <dd className="mt-1">{application.ownershipDocumentName} ({application.ownershipDocumentType})</dd>
+          <dd className="mt-1"><PrivateFileLink url={application.ownershipDocumentUrl} name={application.ownershipDocumentName}>{application.ownershipDocumentName}</PrivateFileLink> ({application.ownershipDocumentType})</dd>
         </div>
         {application.note && (<div className="sm:col-span-2">
             <dt className="font-medium text-ink">Applicant note</dt>

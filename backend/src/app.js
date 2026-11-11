@@ -1,11 +1,12 @@
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import express from "express";
-import fs from "node:fs";
-import multer from "multer";
+import path from "node:path";
+import { randomUUID } from "node:crypto";
+import { multipart, storeUpload, removeUploads, privateFileRoutes, uploadRoot } from "./uploads.js";
 import { clearAuthCookie, requireAdmin, requireUser, setAuthCookie, signToken } from "./auth.js";
 import { prisma } from "./db.js";
-import { sendError } from "./http.js";
+import { HttpError, sendError } from "./http.js";
 import { asyncRoute } from "./http.js";
 import {
   changePartnerAccess,
@@ -54,7 +55,7 @@ import {
 } from "./services/payment-chat.js";
 import { getUser, listUsers, moderateReview, reviewReport, submitReport } from "./services/moderation.js";
 import { getViewingForUser, listViewingsForPartner, listViewingsForUser, requestViewing, reviewViewing } from "./services/viewings.js";
-import { assertVisibleProperty, currentCapability } from "./services/shared.js";
+import { assertVisibleProperty, currentCapability, requireApprovedPartner, sweepExpiredDeposits, bookingInclude } from "./services/shared.js";
 import {
   applicationJson,
   auditJson,
@@ -71,58 +72,45 @@ import {
   viewingJson,
 } from "./serialize.js";
 
-fs.mkdirSync("uploads", { recursive: true });
-const upload = multer({
-  storage: multer.diskStorage({
-    destination: "uploads/",
-    filename: (_req, file, cb) => {
-      const ext = file.mimetype === "image/png" ? ".png" : file.mimetype === "image/jpeg" ? ".jpg" : "";
-      cb(null, `${Date.now().toString(36)}-${Math.random().toString(16).slice(2)}${ext}`);
-    },
-  }),
-  limits: { fileSize: 8 * 1024 * 1024 },
-});
-
-function maybeUpload(uploader) {
-  return (req, res, next) => {
-    const type = req.get("content-type") || "";
-    if (type.includes("multipart/form-data")) return uploader(req, res, next);
-    next();
-  };
-}
-
 function tokenResponse(res, result) {
   const token = signToken(result.user);
   setAuthCookie(res, token);
   return { token, user: publicUser(result.user, result.capability) };
 }
 
-function evidenceInput(req) {
-  return {
-    fileName: req.file?.originalname || req.body.fileName,
-    fileType: req.file?.mimetype || req.body.fileType,
-    storedPath: req.file?.path,
-    note: req.body.note,
-  };
-}
-
-function listingBody(req) {
-  const files = req.files ?? [];
-  if (files.length > 0) {
-    return {
-      ...req.body,
-      photos: files.map((file) => ({ name: file.originalname, type: file.mimetype, src: `/${file.path}` })),
-    };
-  }
-  return req.body;
+async function listingBody(req) {
+  await requireApprovedPartner(prisma, req.user.id);
+  let kept;
+  try { kept = JSON.parse(req.body.keptPhotos || "[]"); } catch { throw new HttpError(400, "Existing photos are invalid."); }
+  if (!Array.isArray(kept) || kept.some(src => typeof src !== "string")) throw new HttpError(400, "Existing photos are invalid.");
+  const existing = req.params.id ? await prisma.property.findUnique({ where: { id: req.params.id }, include: { photos: true } }) : null;
+  if (req.params.id && (!existing || existing.partnerUserId !== req.user.id)) throw new HttpError(404, "Listing not found.");
+  if (existing && !["DRAFT", "REJECTED"].includes(existing.listingStatus)) throw new HttpError(409, "Only a draft or rejected listing can be edited.");
+  const photos = kept.map(src => {
+    const photo = existing?.photos.find(item => item.src === src);
+    if (!photo) throw new HttpError(400, "Only this listing's existing photos may be retained.");
+    return photo;
+  });
+  if (!photos.length && !req.files?.length) throw new HttpError(400, "At least one photo is required.");
+  if (photos.length + (req.files?.length || 0) > 8) throw new HttpError(400, "Upload at most 8 photos.");
+  const stored = [];
+  try {
+    for (const file of req.files || []) {
+      const item = await storeUpload(file, "listings"); stored.push(item);
+      photos.push({ name: item.name, type: item.type, src: `/uploads/${item.relative}`, alt: item.name });
+    }
+    return { input: { ...req.body, photos }, stored };
+  } catch (error) { await removeUploads(stored); throw error; }
 }
 
 export function createApp() {
   const app = express();
-  app.use(cors({ origin: true, credentials: true }));
+  app.use(cors({ origin: process.env.FRONTEND_ORIGIN || "http://localhost:3000", credentials: true }));
   app.use(cookieParser());
   app.use(express.json({ limit: "1mb" }));
-  app.use("/uploads", express.static("uploads"));
+  app.use("/uploads/listings", express.static(path.join(uploadRoot, "listings"), { dotfiles: "deny", setHeaders: res => res.set("X-Content-Type-Options", "nosniff") }));
+  app.use("/api", (_req, res, next) => { res.set("Cache-Control", "private, no-store"); next(); });
+  privateFileRoutes(app, prisma);
 
   app.get("/api/health", asyncRoute(async (_req, res) => {
     await prisma.$queryRaw`SELECT 1`;
@@ -152,20 +140,18 @@ export function createApp() {
     res.json({ user: publicUser(result.user, result.capability) });
   }));
 
-  app.post("/api/partner-applications", requireUser, maybeUpload(upload.fields([
-    { name: "idDocument", maxCount: 1 },
-    { name: "ownershipDocument", maxCount: 1 },
-  ])), asyncRoute(async (req, res) => {
-    const idFile = req.files?.idDocument?.[0];
-    const ownershipFile = req.files?.ownershipDocument?.[0];
-    const application = await submitPartnerApplication(prisma, req.user, {
-      ...req.body,
-      idDocumentName: idFile?.originalname || req.body.idDocumentName,
-      idDocumentType: idFile?.mimetype || req.body.idDocumentType,
-      ownershipDocumentName: ownershipFile?.originalname || req.body.ownershipDocumentName,
-      ownershipDocumentType: ownershipFile?.mimetype || req.body.ownershipDocumentType,
-    });
-    res.status(201).json({ application: applicationJson(application) });
+  app.post("/api/partner-applications", requireUser, multipart("documents"), asyncRoute(async (req, res) => {
+    const id = randomUUID();
+    const stored = [];
+    try {
+      const identity = await storeUpload(req.files?.idDocument?.[0], `private/applications/${id}`, { documents: true, name: "id" }); stored.push(identity);
+      const ownership = await storeUpload(req.files?.ownershipDocument?.[0], `private/applications/${id}`, { documents: true, name: "ownership" }); stored.push(ownership);
+      const application = await prisma.$transaction(tx => submitPartnerApplication(tx, req.user, {
+        ...req.body, idDocumentName: identity.name, idDocumentType: identity.type,
+        ownershipDocumentName: ownership.name, ownershipDocumentType: ownership.type,
+      }, id));
+      res.status(201).json({ application: applicationJson(application) });
+    } catch (error) { await removeUploads(stored); throw error; }
   }));
 
   app.get("/api/partner-applications/me", requireUser, asyncRoute(async (req, res) => {
@@ -182,9 +168,11 @@ export function createApp() {
   }));
 
   app.get("/api/properties/:id", asyncRoute(async (req, res) => {
+    await sweepExpiredDeposits(prisma);
     const property = await assertVisibleProperty(prisma, req.params.id);
     const reviews = await prisma.review.findMany({
       where: { status: { not: "HIDDEN" }, booking: { propertyId: property.id } },
+      include: { renter: { select: { fullName: true } } },
       orderBy: { createdAt: "desc" },
     });
     res.json({ property: publicProperty(property, { reviews }) });
@@ -264,13 +252,12 @@ export function createApp() {
     res.json({ booking: bookingJson(await getBookingForRenter(prisma, req.user.id, req.params.id)) });
   }));
 
-  app.post("/api/bookings/:id/evidence", requireUser, maybeUpload(upload.single("file")), asyncRoute(async (req, res) => {
-    if (req.file && !["image/jpeg", "image/png"].includes(req.file.mimetype)) {
-      fs.unlink(req.file.path, () => {});
-      return res.status(400).json({ error: "Upload a JPG or PNG image." });
-    }
-    const booking = await uploadEvidence(prisma, req.user, req.params.id, evidenceInput(req));
-    res.json({ booking: bookingJson(booking) });
+  app.post("/api/bookings/:id/evidence", requireUser, multipart("evidence"), asyncRoute(async (req, res) => {
+    const stored = await storeUpload(req.file, "private/evidence");
+    try {
+      const booking = await uploadEvidence(prisma, req.user, req.params.id, { fileName: stored.name, fileType: stored.type, storedPath: stored.relative, note: req.body.note });
+      res.json({ booking: bookingJson(booking) });
+    } catch (error) { await removeUploads([stored]); throw error; }
   }));
 
   app.post("/api/bookings/:id/cancel", requireUser, asyncRoute(async (req, res) => {
@@ -312,13 +299,16 @@ export function createApp() {
     res.json({ listings: listings.map(listingJson) });
   }));
 
-  app.post("/api/partner/listings", requireUser, maybeUpload(upload.array("photos", 8)), asyncRoute(async (req, res) => {
-    const listing = await createListing(prisma, req.user, listingBody(req));
-    res.status(201).json({ listing: listingJson(listing) });
+  app.post("/api/partner/listings", requireUser, multipart("photos"), asyncRoute(async (req, res) => {
+    const { input, stored } = await listingBody(req);
+    try { res.status(201).json({ listing: listingJson(await createListing(prisma, req.user, input)) }); }
+    catch (error) { await removeUploads(stored); throw error; }
   }));
 
-  app.patch("/api/partner/listings/:id", requireUser, maybeUpload(upload.array("photos", 8)), asyncRoute(async (req, res) => {
-    res.json({ listing: listingJson(await updateListing(prisma, req.user, req.params.id, listingBody(req))) });
+  app.patch("/api/partner/listings/:id", requireUser, multipart("photos"), asyncRoute(async (req, res) => {
+    const { input, stored } = await listingBody(req);
+    try { res.json({ listing: listingJson(await updateListing(prisma, req.user, req.params.id, input)) }); }
+    catch (error) { await removeUploads(stored); throw error; }
   }));
 
   app.post("/api/partner/listings/:id/submit", requireUser, asyncRoute(async (req, res) => {
@@ -426,6 +416,12 @@ export function createApp() {
     const user = await getUser(prisma, req.params.id);
     if (!user) return res.status(404).json({ error: "User not found." });
     res.json({ user });
+  }));
+
+  app.get("/api/admin/bookings", requireAdmin, asyncRoute(async (_req, res) => {
+    await sweepExpiredDeposits(prisma);
+    const bookings = await prisma.booking.findMany({ include: bookingInclude, orderBy: { createdAt: "desc" } });
+    res.json({ bookings: bookings.map(bookingJson) });
   }));
 
   app.get("/api/admin/reviews", requireAdmin, asyncRoute(async (_req, res) => {

@@ -1,6 +1,6 @@
 "use client";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { api, authToken, storeAuthToken } from "@/lib/api";
+import { api, ApiError, authToken, storeAuthToken, tokenStorageKey } from "@/lib/api";
 import { refreshLiveSession } from "@/lib/live";
 import { setLiveEnabled } from "@/lib/live-store";
 import { findMockPartnerCapability, mockPartnerApplicationsChangedEvent } from "@/lib/mock-partner-application";
@@ -33,9 +33,10 @@ export function MockAuthProvider({ children }) {
     const [partnerApplication, setPartnerApplication] = useState(null);
     const [isReady, setIsReady] = useState(false);
     const applySession = useCallback(async (sessionUser) => {
-        await refreshLiveSession(sessionUser.id, sessionUser.role, sessionUser.isPartner === true);
+        const committed = await refreshLiveSession(sessionUser.id, sessionUser.role, sessionUser.isPartner === true);
+        if (!committed) return;
         const capability = findMockPartnerCapability(sessionUser.id);
-        const nextUser = { ...sessionUser, isPartner: sessionUser.isPartner || capability?.status === "APPROVED" };
+        const nextUser = { ...sessionUser, isPartner: capability?.status === "APPROVED" };
         setUser(nextUser);
         setPartnerApplication(capability);
     }, []);
@@ -54,8 +55,8 @@ export function MockAuthProvider({ children }) {
                     return;
                 await applySession(toSessionUser(me.user));
             }
-            catch {
-                storeAuthToken(null);
+            catch (error) {
+                if (error instanceof ApiError && error.status === 401) storeAuthToken(null);
                 setLiveEnabled(false);
             }
             finally {
@@ -65,7 +66,11 @@ export function MockAuthProvider({ children }) {
         }
         void restore();
         function syncCapability() {
-            setUser((current) => current ? { ...current, isPartner: findMockPartnerCapability(current.id)?.status === "APPROVED" || current.isPartner } : current);
+            setUser(current => {
+                if (!current) return current;
+                const approved = findMockPartnerCapability(current.id)?.status === "APPROVED";
+                return current.isPartner === approved ? current : { ...current, isPartner: approved };
+            });
             setPartnerApplication((current) => {
                 const stored = current?.userId ? findMockPartnerCapability(current.userId) : null;
                 return stored ?? current;
@@ -77,6 +82,39 @@ export function MockAuthProvider({ children }) {
             window.removeEventListener(mockPartnerApplicationsChangedEvent, syncCapability);
         };
     }, [applySession]);
+    useEffect(() => {
+        if (!isReady || !user) return;
+        let active = true;
+        let refreshing = false;
+        async function refresh() {
+            if (refreshing || document.visibilityState === "hidden") return;
+            refreshing = true;
+            const token = authToken();
+            try {
+                const me = await api("/api/me");
+                if (!active || token !== authToken()) return;
+                const next = toSessionUser(me.user);
+                const committed = await refreshLiveSession(next.id, next.role, next.isPartner, { reset: false });
+                if (!active || !committed || token !== authToken()) return;
+                setUser(current => JSON.stringify(current) === JSON.stringify(next) ? current : next);
+                const capability = findMockPartnerCapability(next.id);
+                setPartnerApplication(current => JSON.stringify(current) === JSON.stringify(capability) ? current : capability);
+            } catch (error) {
+                if (active && token === authToken() && error instanceof ApiError && error.status === 401) {
+                    storeAuthToken(null); setLiveEnabled(false); setUser(null); setPartnerApplication(null);
+                }
+            } finally { refreshing = false; }
+        }
+        const interval = window.setInterval(refresh, 15000);
+        window.addEventListener("focus", refresh);
+        document.addEventListener("visibilitychange", refresh);
+        return () => { active = false; window.clearInterval(interval); window.removeEventListener("focus", refresh); document.removeEventListener("visibilitychange", refresh); };
+    }, [isReady, user]);
+    useEffect(() => {
+        function changedSession(event) { if (event.key === tokenStorageKey) window.location.reload(); }
+        window.addEventListener("storage", changedSession);
+        return () => window.removeEventListener("storage", changedSession);
+    }, []);
     const login = useCallback(async (credentials) => {
         const result = await api("/api/auth/login", {
             method: "POST",

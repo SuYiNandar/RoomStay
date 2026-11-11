@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ApiError } from "@/lib/api";
+import { ApiError, publicImageUrl } from "@/lib/api";
 import { liveReviewListing } from "@/lib/live-actions";
 import { liveEnabled } from "@/lib/live-store";
 import { formatBookingDate } from "@/lib/format-date";
@@ -162,10 +162,10 @@ export function AdminListingReview({ listingId }) {
           <dd className="mt-1">{listing.facilities.length > 0 ? listing.facilities.join(", ") : "None listed"}</dd>
         </div>
         <div className="sm:col-span-2">
-          <dt className="font-medium text-ink">Photos (metadata only)</dt>
+          <dt className="font-medium text-ink">Photos</dt>
           <dd className="mt-1">
             {listing.photos.length > 0 ? (<ul className="grid gap-1.5">
-                {listing.photos.map((photo) => (<li key={photo.name} className="rounded-lg bg-canvas px-3 py-2">{photo.name} ({photo.type})</li>))}
+                {listing.photos.map((photo) => (<li key={photo.name} className="rounded-lg bg-canvas px-3 py-2">{photo.src ? <a href={publicImageUrl(photo.src)} target="_blank" rel="noopener noreferrer" className="text-primary underline">{photo.name}</a> : photo.name} ({photo.type})</li>))}
               </ul>) : ("No photos attached")}
           </dd>
         </div>

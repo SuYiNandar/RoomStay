@@ -1,3 +1,4 @@
+import "dotenv/config";
 import bcrypt from "bcryptjs";
 import { pathToFileURL } from "node:url";
 
@@ -101,6 +102,67 @@ export async function seed(db) {
     { id: "thonburi-family-house", title: "Thonburi Family House", location: "Thonburi, Bangkok", area: "Thonburi", province: "Bangkok", monthlyRent: 32000, propertyType: "House", bedrooms: 4, bathrooms: 3, sizeSqm: 120, description: "A large four-bedroom detached house in Thonburi.", facilities: ["Wi-Fi", "Air Conditioner", "Furnished", "Parking", "Security / CCTV", "Balcony"], roomStatus: "UNAVAILABLE", popular: false, photo: "/images/home/garden-house.jpg" },
     { id: "ekkamai-garden-townhouse", title: "Ekkamai Garden Townhouse", location: "Ekkamai, Bangkok", area: "Ekkamai", province: "Bangkok", monthlyRent: 25000, propertyType: "Townhouse", bedrooms: 3, bathrooms: 2, sizeSqm: 85, description: "A three-story townhouse in Ekkamai with a small private garden.", facilities: ["Wi-Fi", "Air Conditioner", "Furnished", "Parking", "Security / CCTV", "Balcony"], roomStatus: "UNAVAILABLE", popular: false, photo: "/images/home/cozy-condo.jpg" },
     { id: "rama4-industrial-loft", title: "Industrial Loft Near Rama 4", location: "Rama 4, Bangkok", area: "Rama 4", province: "Bangkok", monthlyRent: 19500, propertyType: "Duplex / Loft", bedrooms: 2, bathrooms: 2, sizeSqm: 58, description: "An industrial-style loft near Rama 4 with high ceilings.", facilities: ["Wi-Fi", "Air Conditioner", "Furnished", "Elevator", "Security / CCTV", "Fitness / Gym"], roomStatus: "UNAVAILABLE", popular: false, photo: "/images/home/luxury-room.jpg" },
+    // Fictional university-area samples; prices, amenities and photos are illustrative.
+    {
+      id: "rsu-area-apartment",
+      title: "Rangsit University Area Apartment",
+      location: "Rangsit University area, Lak Hok, Pathum Thani",
+      area: "Lak Hok", province: "Pathum Thani",
+      monthlyRent: 5200, propertyType: "Apartment", bedrooms: 0, bathrooms: 1, sizeSqm: 22,
+      description: "Demo/sample listing, not a verified rental. A budget studio imagined in the Rangsit University area, with a study desk and shared laundry for student routines. Photos and amenities are illustrative; no distance or availability is verified.",
+      facilities: ["Wi-Fi", "Air Conditioner", "Furnished", "Washing Machine"],
+      roomStatus: "AVAILABLE", popular: false, photo: "/images/home/modern-studio.jpg",
+    },
+    {
+      id: "rsu-campus-studio",
+      title: "RSU Campus Studio",
+      location: "Rangsit University area, Lak Hok, Pathum Thani",
+      area: "Lak Hok", province: "Pathum Thani",
+      monthlyRent: 6200, propertyType: "Dormitory", bedrooms: 0, bathrooms: 1, sizeSqm: 28,
+      description: "Demo/sample listing, not a verified rental. A larger furnished studio imagined for a Rangsit University student, with a balcony and space for a reading corner. Photos and amenities are illustrative; this is not university-affiliated accommodation.",
+      facilities: ["Wi-Fi", "Air Conditioner", "Furnished", "Balcony", "Security / CCTV"],
+      roomStatus: "AVAILABLE", popular: false, photo: "/images/home/luxury-room.jpg",
+    },
+    {
+      id: "rsu-university-dormitory",
+      title: "Rangsit University Area Dormitory",
+      location: "Rangsit University area, Lak Hok, Pathum Thani",
+      area: "Lak Hok", province: "Pathum Thani",
+      monthlyRent: 5000, propertyType: "Dormitory", bedrooms: 1, bathrooms: 1, sizeSqm: 20,
+      description: "Demo/sample listing, not a verified rental. A simple fan-cooled dorm room imagined in Lak Hok for a student on a smaller budget, with a private bathroom and shared laundry. Photos and amenities are illustrative; this is not an official Rangsit University dormitory.",
+      facilities: ["Wi-Fi", "Furnished", "Security / CCTV", "Washing Machine"],
+      roomStatus: "AVAILABLE", popular: false, photo: "/images/home/modern-studio.jpg",
+    },
+    {
+      id: "bu-rangsit-condo",
+      title: "Bangkok University Rangsit Area Condo",
+      location: "Bangkok University (Rangsit campus) area, Khlong Nueng, Pathum Thani",
+      area: "Khlong Nueng", province: "Pathum Thani",
+      monthlyRent: 9500, propertyType: "Condo", bedrooms: 1, bathrooms: 1, sizeSqm: 35,
+      description: "Demo/sample listing, not a verified rental. A one-bedroom condo imagined in the Bangkok University Rangsit campus area, with a separate living space and shared fitness facilities. Photos and amenities are illustrative; no commute time is verified.",
+      facilities: ["Air Conditioner", "Furnished", "Elevator", "Security / CCTV", "Fitness / Gym", "Swimming Pool"],
+      roomStatus: "AVAILABLE", popular: false, photo: "/images/home/cozy-condo.jpg",
+    },
+    {
+      id: "bu-campus-apartment",
+      title: "BU Campus Area Apartment",
+      location: "Bangkok University (Rangsit campus) area, Khlong Nueng, Pathum Thani",
+      area: "Khlong Nueng", province: "Pathum Thani",
+      monthlyRent: 7500, propertyType: "Apartment", bedrooms: 2, bathrooms: 1, sizeSqm: 46,
+      description: "Demo/sample listing, not a verified rental. A two-bedroom apartment imagined for classmates sharing near the Bangkok University Rangsit campus area, with a shared living space and laundry. Photos and amenities are illustrative; this is not university-affiliated accommodation.",
+      facilities: ["Wi-Fi", "Air Conditioner", "Furnished", "Washing Machine", "Parking"],
+      roomStatus: "AVAILABLE", popular: false, photo: "/images/search/spacious-apartment.jpg",
+    },
+    {
+      id: "bu-university-view-house",
+      title: "University View House — BU Rangsit Area",
+      location: "Bangkok University (Rangsit campus) area, Khlong Nueng, Pathum Thani",
+      area: "Khlong Nueng", province: "Pathum Thani",
+      monthlyRent: 14500, propertyType: "House", bedrooms: 3, bathrooms: 2, sizeSqm: 96,
+      description: "Demo/sample listing, not a verified rental. A three-bedroom house imagined for a small household in the Bangkok University Rangsit campus area, with space for studying together and off-street parking. The name, photos and amenities are illustrative; no campus view is verified.",
+      facilities: ["Air Conditioner", "Parking", "Balcony", "Washing Machine"],
+      roomStatus: "AVAILABLE", popular: false, photo: "/images/home/garden-house.jpg",
+    },
   ];
 
   for (const property of properties) {

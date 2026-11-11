@@ -26,7 +26,7 @@ npm ci
 npm start
 ```
 
-The API listens on http://localhost:4000 and creates the RoomStay tables in Supabase. If `DATABASE_URL` is not set, it starts a local PostgreSQL-compatible database instead, creates the schema, and seeds demo data.
+In development, the API listens on http://localhost:4000, initializes tables without accepting destructive schema changes, and seeds demo data. If `DATABASE_URL` is not set, it uses a local PostgreSQL-compatible embedded database. Production requires an external database and never initializes tables or seeds demo accounts on startup.
 
 Demo password for every account: `password123`
 
@@ -60,3 +60,20 @@ npm test
 - The renter uploads evidence before the deadline. Partner verification sets the booking to `CONFIRMED` and leaves the room reserved. Rejection before the deadline returns the booking to `DEPOSIT_PENDING`. Rejection after the deadline, or a missed deadline, expires the booking and returns the room to `AVAILABLE` when nothing else holds it.
 - Starting the rental sets the booking to `ACTIVE` and the room to `RENTED`. Completing it sets the booking to `COMPLETED` and returns the room to `AVAILABLE`. One review is allowed after completion.
 - A partner can record a refund only after cancellation. The refund record does not move money.
+
+
+## Render / Supabase deployment
+
+Set the service root to `backend`, build with `npm ci --include=dev`, and start with `npm start`. The install step generates Prisma Client. Set `NODE_ENV=production`, `DATABASE_URL`, a random `JWT_SECRET` of at least 32 characters, and `FRONTEND_ORIGIN` to the exact HTTPS Vercel origin (no trailing slash). Set `UPLOAD_DIR` to the mounted persistent disk path described below. Render supplies `PORT`. `/api/health` checks database connectivity.
+
+Initialize a new, empty database explicitly with `npm run db:push` using a direct or session-pooler connection. Do not add `--accept-data-loss`; review changes and back up any existing database. There is no versioned migration history yet. For production, provision an admin securely instead of running the demo seed. `npm run seed` intentionally creates the documented demo accounts and should only target a disposable demo database; it now loads `.env` explicitly.
+
+Uploads use `UPLOAD_DIR` (default: the absolute `backend/uploads` directory in development). Production requires an absolute `UPLOAD_DIR`; configure it inside an attached Render persistent disk, for example mount `/var/data` and set `UPLOAD_DIR=/var/data/roomstay-uploads`. This check cannot prove that a disk is mounted: verify persistence across a redeploy. The free ephemeral filesystem is unsuitable. Keep one backend instance with this local-storage approach; horizontal scaling requires shared private object storage.
+
+All upload forms send multipart bytes. Photos/evidence accept JPEG or PNG; application ID and ownership documents also accept PDF. The API checks MIME against file signatures, limits each file to 8 MiB, accepts at most eight listing photos, requires files, and generates storage names. Application documents use existing application IDs and MIME fields without schema changes. Do not upload active formats such as SVG/HTML.
+
+Only `/uploads/listings/*` is public. Evidence is streamed through authenticated `/api/evidence/:id/file`, restricted to the booking renter, property owner, or admin. Application documents use authenticated `/api/partner-applications/:id/documents/:kind`, restricted to the applicant or admin. Responses disable caching. Clients fetch with authorization headers and render/download temporary blob URLs; API JSON never returns private storage paths. Legacy `uploads/<generated-name>` evidence remains readable through the authorized route if the file is copied into the configured upload root. Previous filename-only application documents cannot be recovered.
+
+Copy existing files to the disk before switching `UPLOAD_DIR`, retaining the directory structure. Back up both database and files and test restoration. New files are removed on rejected database writes; staged files are removed when requests finish. Crashes can leave orphan files, so storage monitoring and an offline reconciliation/retention procedure are still needed. Do not put the private upload directory behind public static hosting or a CDN. Files are not malware-scanned; documents download as attachments. Disk storage is a compatible single-instance deployment option, not shared storage.
+
+See [the technical audit](../docs/TECHNICAL_AUDIT.md) before deployment. Production readiness has not been verified against a real Supabase, Render, or Vercel service.

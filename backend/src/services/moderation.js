@@ -4,11 +4,16 @@ import { applicationJson } from "../serialize.js";
 import { currentCapability } from "./shared.js";
 
 export async function submitReport(db, user, input) {
-  const reason = input.reason?.trim() ?? "";
-  const targetId = input.targetId?.trim() ?? "";
-  const targetLabel = input.targetLabel?.trim() ?? "";
+  const reason = typeof input.reason === "string" ? input.reason.trim() : "";
+  const targetId = typeof input.targetId === "string" ? input.targetId.trim() : "";
+  const description = typeof input.description === "string" ? input.description.trim() : "";
   if (!["PROPERTY", "USER", "PARTNER"].includes(input.targetType)) throw new HttpError(400, "Report target is invalid.");
-  if (!reason || !targetId || !targetLabel) throw new HttpError(400, "Report reason, target, and label are required.");
+  if (!reason || !targetId || reason.length > 200 || description.length > 2000) throw new HttpError(400, "A target and reason (up to 200 characters) are required; details must be at most 2000 characters.");
+  const target = input.targetType === "PROPERTY"
+    ? await db.property.findUnique({ where: { id: targetId }, select: { title: true } })
+    : await db.user.findUnique({ where: { id: targetId }, select: { fullName: true } });
+  if (!target) throw new HttpError(404, "Report target not found.");
+  const targetLabel = target.title || target.fullName;
   return db.report.create({
     data: {
       reporterUserId: user.id,
@@ -16,7 +21,7 @@ export async function submitReport(db, user, input) {
       targetId,
       targetLabel,
       reason,
-      description: input.description?.trim() ?? "",
+      description,
       status: "OPEN",
     },
     include: { reporter: true },

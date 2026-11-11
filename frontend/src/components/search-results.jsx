@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { Icon } from "@/components/icon";
 import { PropertyCard } from "@/components/property-card";
-import { availableMaxPriceOptions, filterProperties, formatPriceOption, initialSearchFilters, minPriceOptions } from "@/lib/search";
+import { availableMaxPriceOptions, filterProperties, formatPriceOption, initialSearchFilters, minPriceOptions, searchFiltersQuery } from "@/lib/search";
 import { usePublicProperties } from "@/lib/published-listings";
 import { facilities, propertyTypes } from "@/types/property";
 const bedroomOptions = [
@@ -49,6 +49,10 @@ export function SearchResults({ initialFilters }) {
     const { properties: publicProperties } = usePublicProperties();
     const locations = [...new Set(publicProperties.map((property) => property.location))];
     const results = filterProperties(publicProperties, filters);
+    useEffect(() => {
+        const query = searchFiltersQuery(filters);
+        window.history.replaceState(null, "", `${window.location.pathname}${query ? `?${query}` : ""}`);
+    }, [filters]);
     function update(key, value) {
         setFilters((current) => ({ ...current, [key]: value }));
     }

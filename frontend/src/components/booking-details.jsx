@@ -1,4 +1,5 @@
 "use client";
+import { BookingActions } from "@/components/booking-actions";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -21,7 +22,7 @@ function statusName(status) {
 }
 function statusMessage(status) {
     if (status === "PENDING")
-        return "Waiting for Partner review. The room is not reserved yet. Bank details appear only after the Partner approves this request.";
+        return "Waiting for Partner review. The room is not reserved yet. Deposit instructions appear after the Partner approves this request.";
     if (status === "APPROVED")
         return "Partner approved this booking. Deposit details will appear here when they are available.";
     if (status === "DEPOSIT_PENDING")
@@ -63,11 +64,6 @@ function isDeadlineExpired(deadline) {
     const deadlineDate = new Date(deadline);
     return !Number.isNaN(deadlineDate.getTime()) && deadlineDate.getTime() <= Date.now();
 }
-const paymentInfo = {
-    bankName: "Kasikorn Bank",
-    accountName: "Mr. Thana",
-    accountNumber: "123-4-56789-0",
-};
 export function BookingDetails({ bookingId }) {
     const router = useRouter();
     const { user, isReady } = useMockAuth();
@@ -81,11 +77,13 @@ export function BookingDetails({ bookingId }) {
             router.replace(`/login?returnTo=${encodeURIComponent(`/bookings/${bookingId}`)}`);
             return undefined;
         }
-        const timeout = window.setTimeout(() => {
+        function loadBooking() {
             const found = findMockBookingRequest(bookingId);
             setBooking(found && found.renterUserId === user.id ? found : null);
-        }, 0);
-        return () => window.clearTimeout(timeout);
+        }
+        const timeout = window.setTimeout(loadBooking, 0);
+        window.addEventListener("roomstay:bookings-changed", loadBooking);
+        return () => { window.clearTimeout(timeout); window.removeEventListener("roomstay:bookings-changed", loadBooking); };
     }, [bookingId, isReady, router, user]);
     useEffect(() => {
         const interval = window.setInterval(() => setNow(Date.now()), 60000);
@@ -136,7 +134,7 @@ export function BookingDetails({ bookingId }) {
 
         {booking.status === "PENDING" && (<section className="mt-4 rounded-2xl border border-line bg-[#f7f4ee] p-4 text-sm text-ink-secondary">
             <h2 className="font-semibold text-ink">No payment yet</h2>
-            <p className="mt-2 leading-6">You do not upload a slip while this request is pending. After the partner approves it, this page shows the bank account, the amount, and the button to upload the transfer photo.</p>
+            <p className="mt-2 leading-6">You do not upload a slip while this request is pending. After the partner approves it, this page shows the deposit instructions, amount, and button to upload the transfer photo.</p>
           </section>)}
 
         {evidence && (<section className="mt-4">
@@ -163,7 +161,7 @@ export function BookingDetails({ bookingId }) {
                 </span>
               </div>
               {deadlineExpired && (<p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-alert">
-                  The payment deadline has passed. Bookings do not expire automatically; wait for the Partner to review the deadline or contact them about this booking.
+                  The payment deadline has passed. Refresh to load the latest booking status. Contact the Partner if you already paid.
                 </p>)}
             </section>
 
@@ -194,24 +192,8 @@ export function BookingDetails({ bookingId }) {
             <section className="rounded-xl border border-line bg-white p-4 text-sm text-ink-secondary">
               <h2 className="font-semibold text-ink">Payment instructions</h2>
               <p className="mt-2 leading-6">RoomStay does not process payments. Pay the deposit outside the system, then upload payment evidence for Partner verification.</p>
-              <dl className="mt-3 grid gap-3 rounded-lg bg-canvas p-3 sm:grid-cols-2">
-                <div>
-                  <dt className="font-medium text-ink">Bank name</dt>
-                  <dd className="mt-1">{paymentInfo.bankName}</dd>
-                </div>
-                <div>
-                  <dt className="font-medium text-ink">Account name</dt>
-                  <dd className="mt-1">{paymentInfo.accountName}</dd>
-                </div>
-                <div>
-                  <dt className="font-medium text-ink">Account number</dt>
-                  <dd className="mt-1">{paymentInfo.accountNumber}</dd>
-                </div>
-                <div>
-                  <dt className="font-medium text-ink">Payment reference</dt>
-                  <dd className="mt-1">{booking.id}</dd>
-                </div>
-              </dl>
+              <p className="mt-3 rounded-lg bg-canvas p-3 leading-6">{booking.deposit?.paymentInstructions || "Contact the Partner to confirm the deposit instructions."}</p>
+              <p className="mt-2 leading-6">Confirm the recipient’s bank details directly with the Partner before paying.</p>
               <Link href={`/bookings/${booking.id}/upload-evidence`} className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-primary px-5 text-sm font-semibold text-white btn-primary sm:w-auto">
                 {evidenceRejected ? "Upload New Evidence" : "Upload Payment Evidence"}
               </Link>
@@ -349,6 +331,7 @@ export function BookingDetails({ bookingId }) {
         <Link href="/bookings" className="mt-5 inline-flex min-h-11 items-center justify-center rounded-lg border border-line bg-white px-5 text-sm font-semibold text-ink btn-secondary">
           Back to My Bookings
         </Link>
+        <BookingActions booking={booking} />
       </section>
 
       <aside className="rounded-xl border border-line bg-white p-4 shadow-sm md:p-5 lg:sticky lg:top-8">

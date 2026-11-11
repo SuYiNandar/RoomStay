@@ -151,10 +151,8 @@ export function PartnerApplicationForm() {
                     fullName: fullName.trim(),
                     email: email.trim(),
                     phone: phone.trim(),
-                    idDocumentName: idDocument.name,
-                    idDocumentType: idDocument.type || "file",
-                    ownershipDocumentName: ownershipDocument.name,
-                    ownershipDocumentType: ownershipDocument.type || "file",
+                    idDocument,
+                    ownershipDocument,
                     note: note.trim(),
                 });
                 router.push("/partner-application");
@@ -223,14 +221,14 @@ export function PartnerApplicationForm() {
             <div>
               <label htmlFor="partner-id-document" className="block text-sm font-medium text-ink">Identity document <span className="text-alert">*</span></label>
               <input id="partner-id-document" type="file" accept=".jpg,.jpeg,.png,.pdf" onChange={(event) => handleFileChange(event, "id")} required className="mt-2 block w-full text-sm text-ink-secondary file:mr-4 file:rounded-lg file:border-0 file:bg-primary file:px-4 file:py-2.5 file:text-sm file:font-semibold file:text-white"/>
-              <p className="mt-2 text-xs text-ink-secondary">Accepted formats: JPG, JPEG, PNG, PDF. Only the file name is stored.</p>
+              <p className="mt-2 text-xs text-ink-secondary">Accepted formats: JPG, JPEG, PNG, PDF. Maximum 8 MB per document.</p>
               {idDocument && <p className="mt-2 text-sm font-medium text-ink">Selected file: {idDocument.name}</p>}
               {errors.idDocument && <p className="mt-2 text-sm text-alert">{errors.idDocument}</p>}
             </div>
             <div>
               <label htmlFor="partner-ownership-document" className="block text-sm font-medium text-ink">Property ownership / authorization document <span className="text-alert">*</span></label>
               <input id="partner-ownership-document" type="file" accept=".jpg,.jpeg,.png,.pdf" onChange={(event) => handleFileChange(event, "ownership")} required className="mt-2 block w-full text-sm text-ink-secondary file:mr-4 file:rounded-lg file:border-0 file:bg-primary file:px-4 file:py-2.5 file:text-sm file:font-semibold file:text-white"/>
-              <p className="mt-2 text-xs text-ink-secondary">Accepted formats: JPG, JPEG, PNG, PDF. Only the file name is stored.</p>
+              <p className="mt-2 text-xs text-ink-secondary">Accepted formats: JPG, JPEG, PNG, PDF. Maximum 8 MB per document.</p>
               {ownershipDocument && <p className="mt-2 text-sm font-medium text-ink">Selected file: {ownershipDocument.name}</p>}
               {errors.ownershipDocument && <p className="mt-2 text-sm text-alert">{errors.ownershipDocument}</p>}
             </div>

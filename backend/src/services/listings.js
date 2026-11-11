@@ -1,3 +1,4 @@
+import { propertyTransaction } from "./locking.js";
 import { z } from "zod";
 import { displayLocation, normalizeHouseRules, reviewListingState, setAvailabilityState, suspendListingState } from "../domain/rules.js";
 import { HttpError } from "../http.js";
@@ -119,15 +120,17 @@ export async function submitListing(db, user, id) {
 
 export async function setListingAvailability(db, user, id, roomStatus) {
   await requireApprovedPartner(db, user.id);
-  const existing = await db.property.findUnique({ where: { id } });
+  return propertyTransaction(db, id, async tx => {
+  const existing = await tx.property.findUnique({ where: { id } });
   if (!existing || existing.partnerUserId !== user.id) throw new HttpError(404, "Listing not found.");
   const next = setAvailabilityState(existing.roomStatus, roomStatus);
-  return db.property.update({ where: { id }, data: { roomStatus: next }, include });
+  return tx.property.update({ where: { id }, data: { roomStatus: next }, include });
+  });
 }
 
 export async function reviewListing(db, admin, id, decision) {
   const now = new Date();
-  return db.$transaction(async (tx) => {
+  return propertyTransaction(db, id, async (tx) => {
     const listing = await tx.property.findUnique({ where: { id }, include });
     if (!listing) throw new HttpError(404, "Listing not found.");
     const next = reviewListingState({ listing, decision, now });
@@ -161,7 +164,7 @@ export async function reviewListing(db, admin, id, decision) {
 
 export async function suspendListing(db, admin, id) {
   const now = new Date();
-  return db.$transaction(async (tx) => {
+  return propertyTransaction(db, id, async (tx) => {
     const listing = await tx.property.findUnique({ where: { id } });
     if (!listing) throw new HttpError(404, "Listing not found.");
     const next = suspendListingState(listing, now);
@@ -186,7 +189,9 @@ function normalizeBody(input) {
   if (typeof body.facilities === "string") {
     body.facilities = body.facilities.split(",").map((item) => item.trim()).filter(Boolean);
   }
-  if (typeof body.photos === "string") body.photos = JSON.parse(body.photos);
-  if (typeof body.houseRules === "string" && body.houseRules) body.houseRules = JSON.parse(body.houseRules);
+  try {
+    if (typeof body.photos === "string") body.photos = JSON.parse(body.photos);
+    if (typeof body.houseRules === "string" && body.houseRules) body.houseRules = JSON.parse(body.houseRules);
+  } catch { throw new HttpError(400, "Invalid listing fields."); }
   return body;
 }

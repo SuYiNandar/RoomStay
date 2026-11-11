@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
 import { Icon } from "@/components/icon";
-import { mockReviewsChangedEvent, readMockBookingRequests, readVisibleMockReviews } from "@/lib/mock-bookings";
+import { api } from "@/lib/api";
+import { mockReviewsChangedEvent } from "@/lib/mock-bookings";
 function formatDate(value) {
     const date = new Date(value);
     if (Number.isNaN(date.getTime()))
@@ -10,27 +11,22 @@ function formatDate(value) {
 }
 export function PropertyReviews({ propertyId, showEmptyState = false }) {
     const [reviews, setReviews] = useState([]);
+    const [error, setError] = useState("");
     useEffect(() => {
-        function loadReviews() {
-            const bookings = readMockBookingRequests();
-            const propertyReviews = readVisibleMockReviews()
-                .map((review) => {
-                const booking = bookings.find((item) => item.id === review.bookingId && item.propertyId === propertyId);
-                return booking ? { ...review, renterName: booking.renterName } : null;
-            })
-                .filter((review) => Boolean(review))
-                .sort((first, second) => new Date(second.createdAt).getTime() - new Date(first.createdAt).getTime());
-            setReviews(propertyReviews);
+        let active = true;
+        async function loadReviews() {
+            try {
+                const data = await api(`/api/properties/${propertyId}`);
+                if (active) { setReviews(data.property.reviews || []); setError(""); }
+            } catch { if (active) setError("Reviews could not be loaded. Please try again."); }
         }
-        const timeout = window.setTimeout(loadReviews, 0);
+        void loadReviews();
+        const interval = window.setInterval(loadReviews, 15000);
         window.addEventListener(mockReviewsChangedEvent, loadReviews);
-        window.addEventListener("storage", loadReviews);
-        return () => {
-            window.clearTimeout(timeout);
-            window.removeEventListener(mockReviewsChangedEvent, loadReviews);
-            window.removeEventListener("storage", loadReviews);
-        };
+        window.addEventListener("focus", loadReviews);
+        return () => { active = false; window.clearInterval(interval); window.removeEventListener(mockReviewsChangedEvent, loadReviews); window.removeEventListener("focus", loadReviews); };
     }, [propertyId]);
+    if (error) return <p role="status" className="text-sm text-ink-secondary">{error}</p>;
     if (reviews.length === 0) {
         if (!showEmptyState)
             return null;

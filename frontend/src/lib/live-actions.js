@@ -1,7 +1,8 @@
 import { api } from "@/lib/api";
 import { rememberBooking } from "@/lib/live";
-import { readLive, upsertLive, writeLive, writeLiveRoomStatus } from "@/lib/live-store";
+import { invalidateLiveRefresh, readLive, upsertLive, writeLive, writeLiveRoomStatus } from "@/lib/live-store";
 function changed(name) {
+    invalidateLiveRefresh();
     window.dispatchEvent(new Event(name));
 }
 export async function liveRequestBooking(input) {
@@ -153,16 +154,18 @@ export async function liveSendMessage(conversationId, text) {
     return data.message;
 }
 export async function liveSubmitPartnerApplication(input) {
+    const body = new FormData();
+    for (const [key, value] of Object.entries(input)) if (value !== undefined) body.append(key, value);
     const data = await api("/api/partner-applications", {
         method: "POST",
-        body: JSON.stringify(input),
+        body,
     });
     upsertLive("applications", data.application);
     changed("roomstay:partner-applications-changed");
     return data.application;
 }
 export async function liveSaveListing(input, submit) {
-    const body = {
+    const fields = {
         title: input.title,
         propertyType: input.propertyType,
         monthlyRent: input.monthlyRent,
@@ -176,12 +179,18 @@ export async function liveSaveListing(input, submit) {
         bathrooms: input.bathrooms,
         sizeSqm: input.sizeSqm,
         facilities: input.facilities,
-        photos: input.photos,
+
         houseRules: input.houseRules,
     };
+    const body = new FormData();
+    for (const [key, value] of Object.entries(fields)) {
+        if (value !== undefined) body.append(key, key === "facilities" ? value.join(",") : typeof value === "object" ? JSON.stringify(value) : String(value));
+    }
+    body.append("keptPhotos", JSON.stringify((input.keptPhotos || []).map(photo => photo.src)));
+    for (const file of input.files || []) body.append("photos", file);
     const saved = input.id
-        ? await api(`/api/partner/listings/${input.id}`, { method: "PATCH", body: JSON.stringify(body) })
-        : await api("/api/partner/listings", { method: "POST", body: JSON.stringify(body) });
+        ? await api(`/api/partner/listings/${input.id}`, { method: "PATCH", body })
+        : await api("/api/partner/listings", { method: "POST", body });
     const listing = submit
         ? (await api(`/api/partner/listings/${saved.listing.id}/submit`, { method: "POST" })).listing
         : saved.listing;
@@ -248,4 +257,19 @@ export async function liveModerateReview(id, status) {
     upsertLive("reviews", data.review);
     changed("roomstay:reviews-changed");
     return data.review;
+}
+
+export async function liveCancelBooking(id, partner = false) {
+    const data = await api(`/api/${partner ? "partner/" : ""}bookings/${id}/cancel`, { method: "POST" });
+    const booking = rememberBooking(data.booking);
+    changed("roomstay:bookings-changed");
+    changed("roomstay:room-statuses-changed");
+    return booking;
+}
+export function liveRecordRefund(id, input) {
+    return partnerBooking(`/api/partner/bookings/${id}/refund`, input);
+}
+export async function liveSubmitReport(input) {
+    const data = await api("/api/reports", { method: "POST", body: JSON.stringify(input) });
+    return data.report;
 }

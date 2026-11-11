@@ -22,7 +22,8 @@ export function todayDateString(now = new Date()) {
 }
 
 export function assertIsoDate(value, label) {
-  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(new Date(`${value}T00:00:00`).getTime())) {
+  const date = typeof value === "string" ? new Date(`${value}T00:00:00.000Z`) : new Date(NaN);
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value) {
     throw new HttpError(400, `${label} must be a valid date.`);
   }
 }

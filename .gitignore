@@ -8,4 +8,6 @@ backend/.pglite/
 backend/uploads/
 .env
 .env.local
+.env.*
+!.env.example
 *.log

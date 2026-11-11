@@ -1,13 +1,13 @@
-import { api } from "@/lib/api";
+import { api, publicImageUrl, authToken } from "@/lib/api";
 import { propertyTypes } from "@/types/property";
-import { liveEnabled, readLive, setLiveEnabled, upsertLive, writeLive, writeLiveRoomStatus, writeLiveRoomStatuses, } from "@/lib/live-store";
+import { liveEnabled, liveVersion, readLive, setLiveEnabled, upsertLive, writeLive, writeLiveRoomStatus, writeLiveRoomStatuses, } from "@/lib/live-store";
 function text(value) {
     return typeof value === "string" ? value : undefined;
 }
 export function apiPropertyToProperty(item) {
     if (!propertyTypes.includes(item.propertyType))
         return null;
-    const image = item.image || item.images?.[0]?.src || "/images/home/cozy-condo.jpg";
+    const image = publicImageUrl(item.image || item.images?.[0]?.src || "/images/home/cozy-condo.jpg");
     const imageAlt = item.imageAlt || item.images?.[0]?.alt || item.title;
     return {
         id: item.id,
@@ -20,13 +20,14 @@ export function apiPropertyToProperty(item) {
         price: item.price,
         image,
         imageAlt,
-        images: item.images?.length ? item.images : [{ src: image, alt: imageAlt }],
+        images: item.images?.length ? item.images.map(photo => ({ ...photo, src: publicImageUrl(photo.src) })) : [{ src: image, alt: imageAlt }],
         bedrooms: item.bedrooms,
         bathrooms: item.bathrooms,
         size: item.size,
         propertyType: item.propertyType,
         facilities: item.facilities.filter((facility) => typeof facility === "string"),
         description: item.description,
+        reviews: item.reviews || [],
         owner: {
             name: item.owner?.name ?? "Property Partner",
             initials: item.owner?.initials ?? "PP",
@@ -94,77 +95,43 @@ async function collect(paths, key) {
     }
     return records;
 }
-export async function refreshLiveSession(userId, role, isPartner) {
-    setLiveEnabled(true);
-    await loadApiProperties().catch(() => undefined);
-    const bookingPaths = role === "ADMIN" ? [] : ["/api/bookings", ...(isPartner ? ["/api/partner/bookings"] : [])];
+export async function refreshLiveSession(userId, role, isPartner, { reset = true } = {}) {
+    if (reset) { setLiveEnabled(false); setLiveEnabled(true); }
+    const version = liveVersion();
+    const token = authToken();
+    const bookingPaths = role === "ADMIN" ? ["/api/admin/bookings"] : ["/api/bookings", ...(isPartner ? ["/api/partner/bookings"] : [])];
     const viewingPaths = role === "ADMIN" ? [] : ["/api/viewings", ...(isPartner ? ["/api/partner/viewings"] : [])];
-    const bookings = bookingPaths.length ? await collect(bookingPaths, "bookings") : [];
-    writeLive("bookings", bookings.map((booking) => asBooking(booking)));
-    writeLive("evidence", bookings.map((booking) => booking.evidence).filter(Boolean));
-    writeLive("reviews", bookings.map((booking) => booking.review).filter(Boolean));
-    writeLive("viewings", viewingPaths.length ? await collect(viewingPaths, "viewings") : []);
-    if (role !== "ADMIN") {
-        const favorites = await api("/api/favorites");
-        writeLive("favorites", favorites.favorites.map((favorite) => ({
-            renterUserId: userId,
-            propertyId: favorite.property.id,
-            createdAt: new Date().toISOString(),
-        })));
-    }
-    const conversations = await api("/api/conversations");
-    writeLive("conversations", conversations.conversations);
-    const messages = [];
-    for (const conversation of conversations.conversations) {
-        const detail = await api(`/api/conversations/${conversation.id}`);
-        messages.push(...detail.messages);
-    }
-    writeLive("messages", messages);
-    const notifications = await api("/api/notifications");
-    writeLive("notifications", notifications.notifications.map((notification) => ({
-        ...notification,
-        renterUserId: notification.userId,
-    })));
-    if (isPartner || role === "USER") {
-        const applications = await api("/api/partner-applications/me");
-        writeLive("applications", applications.applications);
-    }
-    if (isPartner) {
-        const listings = await api("/api/partner/listings");
-        writeLive("listings", listings.listings);
-    }
-    if (role === "ADMIN") {
-        const [applications, listings, reports, reviews, audits] = await Promise.all([
-            api("/api/admin/partner-applications"),
-            api("/api/admin/listings"),
-            api("/api/admin/reports"),
-            api("/api/admin/reviews"),
-            api("/api/admin/audit-logs"),
-        ]);
-        writeLive("applications", applications.applications);
-        writeLive("listings", listings.listings);
-        writeLive("reports", reports.reports);
-        writeLive("reviews", reviews.reviews);
-        writeLive("audits", audits.auditLogs);
-        const users = await api("/api/admin/users");
-        writeLive("users", users.users);
-    }
+    const [bookings, viewings, favorites, conversations, notifications, applications, listings, reports, reviews, audits, users] = await Promise.all([
+        collect(bookingPaths, "bookings"),
+        viewingPaths.length ? collect(viewingPaths, "viewings") : [],
+        role !== "ADMIN" ? api("/api/favorites") : { favorites: [] },
+        api("/api/conversations"), api("/api/notifications"),
+        api(role === "ADMIN" ? "/api/admin/partner-applications" : "/api/partner-applications/me"),
+        role === "ADMIN" ? api("/api/admin/listings") : isPartner ? api("/api/partner/listings") : { listings: [] },
+        role === "ADMIN" ? api("/api/admin/reports") : { reports: [] },
+        role === "ADMIN" ? api("/api/admin/reviews") : { reviews: [] },
+        role === "ADMIN" ? api("/api/admin/audit-logs") : { auditLogs: [] },
+        role === "ADMIN" ? api("/api/admin/users") : { users: [] },
+    ]);
+    const details = await Promise.all(conversations.conversations.map(item => api(`/api/conversations/${item.id}`)));
+    // Never repopulate private caches after logout, a new account, or a newer local write.
+    if (authToken() !== token || liveVersion() !== version || !liveEnabled()) return false;
+    const snapshot = {
+        bookings: bookings.map(asBooking), viewings,
+        evidence: bookings.map(item => item.evidence).filter(Boolean),
+        reviews: role === "ADMIN" ? reviews.reviews : bookings.map(item => item.review).filter(Boolean),
+        favorites: favorites.favorites.map(item => ({ renterUserId: userId, propertyId: item.property.id, createdAt: item.createdAt || "" })),
+        conversations: conversations.conversations, messages: details.flatMap(item => item.messages),
+        notifications: notifications.notifications.map(item => ({ ...item, renterUserId: item.userId })),
+        applications: applications.applications, listings: listings.listings, reports: reports.reports,
+        audits: audits.auditLogs, users: users.users,
+    };
+    for (const [key, records] of Object.entries(snapshot)) writeLive(key, records);
     if (typeof window !== "undefined") {
-        for (const name of [
-            "roomstay:bookings-changed",
-            "roomstay:viewings-changed",
-            "roomstay:favorites-changed",
-            "roomstay:messages-changed",
-            "roomstay:notifications-changed",
-            "roomstay:listings-changed",
-            "roomstay:partner-applications-changed",
-            "roomstay:reports-changed",
-            "roomstay:reviews-changed",
-            "roomstay:audit-logs-changed",
-            "roomstay:room-statuses-changed",
-        ])
-            window.dispatchEvent(new Event(name));
+        for (const name of ["bookings", "viewings", "favorites", "messages", "notifications", "listings", "partner-applications", "reports", "reviews", "audit-logs", "room-statuses", "users"])
+            window.dispatchEvent(new Event(`roomstay:${name}-changed`));
     }
+    return true;
 }
 export function liveRecords(bucket) {
     return liveEnabled() ? readLive(bucket) : null;

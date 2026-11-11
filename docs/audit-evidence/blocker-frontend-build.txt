@@ -1,0 +1,89 @@
+
+> roomstay-frontend@0.1.0 build
+> next build --webpack
+
+▲ Next.js 16.4.6 (webpack)
+✓ Running next.config.mjs took 11ms
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 2.4s
+  Running TypeScript ...
+  Finished TypeScript in 2ms ...
+  Collecting page data using 9 workers ...
+  Generating static pages using 9 workers (0/68) ...
+  Generating static pages using 9 workers (17/68) 
+  Generating static pages using 9 workers (34/68) 
+  Generating static pages using 9 workers (51/68) 
+✓ Generating static pages using 9 workers (68/68) in 540ms
+  Finalizing page optimization ...
+  Collecting build traces ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ○ /admin
+├ ○ /admin/audit-logs
+├ ○ /admin/listings
+├ ƒ /admin/listings/[id]
+├ ○ /admin/partner-applications
+├ ƒ /admin/partner-applications/[id]
+├ ○ /admin/payment-chats
+├ ƒ /admin/payment-chats/[id]
+├ ○ /admin/reports
+├ ƒ /admin/reports/[id]
+├ ○ /admin/reviews
+├ ƒ /admin/reviews/[id]
+├ ○ /admin/users
+├ ƒ /admin/users/[id]
+├ ○ /become-a-partner
+├ ○ /bookings
+├ ƒ /bookings/[id]
+├ ƒ /bookings/[id]/payment-chat
+├ ƒ /bookings/[id]/review
+├ ƒ /bookings/[id]/upload-evidence
+├ ○ /favorites
+├ ƒ /login
+├ ○ /messages
+├ ƒ /messages/[conversationId]
+├ ○ /notifications
+├ ○ /partner
+├ ○ /partner-application
+├ ○ /partner/bookings
+├ ƒ /partner/bookings/[id]
+├ ƒ /partner/bookings/[id]/payment-chat
+├ ○ /partner/listings
+├ ƒ /partner/listings/new
+├ ○ /partner/messages
+├ ƒ /partner/messages/[conversationId]
+├ ○ /partner/notifications
+├ ○ /partner/payment-chats
+├ ○ /partner/profile
+├ ○ /partner/reviews
+├ ○ /partner/viewings
+├ ƒ /partner/viewings/[id]
+├ ○ /profile
+├   /properties/[id]
+│ ├ ● /properties/cozy-condo
+│ ├ ● /properties/modern-studio
+│ ├ ● /properties/luxury-dormitory
+│ └ ● [+9 more paths]
+├   /properties/[id]/request-booking
+│ ├ ● /properties/cozy-condo/request-booking
+│ ├ ● /properties/modern-studio/request-booking
+│ ├ ● /properties/luxury-dormitory/request-booking
+│ └ ● [+9 more paths]
+├   /properties/[id]/request-viewing
+│ ├ ● /properties/cozy-condo/request-viewing
+│ ├ ● /properties/modern-studio/request-viewing
+│ ├ ● /properties/luxury-dormitory/request-viewing
+│ └ ● [+9 more paths]
+├ ƒ /register
+├ ƒ /search
+├ ○ /viewings
+└ ƒ /viewings/[id]
+
+
+○  (Static)   prerendered as static content
+●  (SSG)      prerendered as static HTML (uses generateStaticParams)
+ƒ  (Dynamic)  server-rendered on demand
+

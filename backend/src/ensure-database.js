@@ -46,7 +46,8 @@ export async function ensureDatabase(options = {}) {
   if (!options.forceEmbedded && process.env.DATABASE_URL) {
     const supabase = isSupabase(process.env.DATABASE_URL);
     if (supabase) process.env.DATABASE_URL = supabaseUrl(process.env.DATABASE_URL);
-    await pushSchema(!supabase);
+    // Production schema changes are an explicit deployment step.
+    if (process.env.NODE_ENV !== "production") await pushSchema(false);
     return { embedded: false, provider: supabase ? "supabase" : "postgres", async stop() {} };
   }
 

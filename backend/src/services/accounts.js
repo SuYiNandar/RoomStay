@@ -76,7 +76,7 @@ export async function updateProfile(db, userId, input) {
   return { user, capability: await currentCapability(db, user.id) };
 }
 
-export async function submitPartnerApplication(db, user, input) {
+export async function submitPartnerApplication(db, user, input, id) {
   const data = parse(applicationSchema, input);
   const capability = await currentCapability(db, user.id);
   if (capability && capability.status !== "REJECTED") {
@@ -84,6 +84,7 @@ export async function submitPartnerApplication(db, user, input) {
   }
   const application = await db.partnerApplication.create({
     data: {
+      ...(id ? { id } : {}),
       userId: user.id,
       fullName: data.fullName,
       email: data.email.toLowerCase(),

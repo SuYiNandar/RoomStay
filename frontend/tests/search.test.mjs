@@ -24,7 +24,7 @@ function load(relative) {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2021, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true },
   }).outputText;
   vm.runInNewContext(source, {
-    module: compiled, exports: compiled.exports,
+    module: compiled, exports: compiled.exports, URLSearchParams,
     require: (name) => {
       if (name.endsWith(".module.css")) return { category: "category" };
       // Inspect the page's links without rendering unrelated client components.
@@ -34,7 +34,7 @@ function load(relative) {
   }, { filename: file });
   return compiled.exports;
 }
-const { initialSearchFilters, filterProperties } = load("lib/search");
+const { initialSearchFilters, filterProperties, searchFiltersQuery } = load("lib/search");
 const { apiPropertyToProperty } = load("lib/live");
 const { properties: fallbackProperties } = load("mocks/properties");
 const records = new Map();
@@ -65,7 +65,12 @@ for (const [label, flag, expected] of categories) {
   test(`/search?${flag}=true returns the expected seeded and fallback property`, () => {
     const filters = fromUrl(`/search?${flag}=true`);
     assert.equal(filters[flag], true);
-    assert.deepEqual(ids(filterProperties(seededProperties, filters)), [expected]);
+    const results = filterProperties(seededProperties, filters);
+    if (flag === "nearUniversity") {
+      assert.deepEqual(ids(results).sort(), [expected, "rsu-area-apartment", "rsu-campus-studio", "rsu-university-dormitory", "bu-rangsit-condo", "bu-campus-apartment", "bu-university-view-house"].sort());
+      assert.equal(results.filter(item => item.location.includes("Rangsit University")).length, 3);
+      assert.equal(results.filter(item => item.location.includes("Bangkok University")).length, 3);
+    } else assert.deepEqual(ids(results), [expected]);
     assert.deepEqual(ids(filterProperties(fallbackProperties, filters)), [expected]);
   });
 
@@ -141,5 +146,14 @@ test("re-seeding backfills the existing garden house once and preserves other da
   await seed(db);
   assert.deepEqual(house.facilities, ["Parking", "Custom facility", "Pet friendly"]);
   assert.equal(house.title, "Edited garden house");
-  assert.equal(records.size, 12);
+  assert.equal(records.size, 18);
+});
+
+
+test("all search filters survive serialization and direct URL reload", () => {
+  const filters = { ...initialSearchFilters(), query: "Condo", location: "Ari, Bangkok", roomType: "Condo", minPrice: "8000", maxPrice: "15000", bedrooms: "1", facilities: ["Wi-Fi", "Air Conditioner"], availableOnly: true, nearTransit: true, sort: "price-asc" };
+  assert.deepEqual(JSON.parse(JSON.stringify(fromUrl(`/search?${searchFiltersQuery(filters)}`))), filters);
+  const noMinimum = { ...filters, minPrice: "" };
+  assert.deepEqual(JSON.parse(JSON.stringify(fromUrl(`/search?${searchFiltersQuery(noMinimum)}`))), noMinimum);
+  assert.equal(searchFiltersQuery(initialSearchFilters()), "");
 });

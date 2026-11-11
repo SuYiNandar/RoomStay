@@ -25,8 +25,10 @@ export function applicationJson(application) {
     email: application.email,
     phone: application.phone,
     idDocumentName: application.idDocumentName,
+    idDocumentUrl: `/api/partner-applications/${application.id}/documents/id`,
     idDocumentType: application.idDocumentType,
     ownershipDocumentName: application.ownershipDocumentName,
+    ownershipDocumentUrl: `/api/partner-applications/${application.id}/documents/ownership`,
     ownershipDocumentType: application.ownershipDocumentType,
     note: application.note,
     status: application.status,
@@ -110,19 +112,6 @@ export function publicProperty(property, extras = {}) {
   };
 }
 
-function evidenceFileUrl(evidence) {
-  if (!evidence?.storedPath) return null;
-  const normalized = String(evidence.storedPath).replaceAll("\\", "/");
-  const marker = normalized.lastIndexOf("uploads/");
-  if (marker === -1) return null;
-  let url = `/${normalized.slice(marker)}`;
-  if (!/\.(png|jpe?g)$/i.test(url)) {
-    if (evidence.fileType === "image/png") url += ".png";
-    else if (evidence.fileType === "image/jpeg") url += ".jpg";
-  }
-  return url;
-}
-
 export function evidenceJson(evidence) {
   if (!evidence) return null;
   return {
@@ -130,7 +119,7 @@ export function evidenceJson(evidence) {
     bookingId: evidence.bookingId,
     fileName: evidence.fileName,
     fileType: evidence.fileType,
-    fileUrl: evidenceFileUrl(evidence),
+    fileUrl: evidence.storedPath ? `/api/evidence/${evidence.id}/file` : null,
     note: evidence.note,
     uploadedAt: evidence.uploadedAt.toISOString(),
     status: evidence.status,
@@ -146,6 +135,7 @@ export function reviewJson(review) {
     id: review.id,
     bookingId: review.bookingId,
     renterUserId: review.renterUserId,
+    renterName: review.renter?.fullName ?? "Renter",
     rating: review.rating,
     comment: review.comment,
     status: review.status,

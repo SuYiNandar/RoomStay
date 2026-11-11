@@ -1,3 +1,4 @@
+import { bookingTransaction, propertyTransaction } from "./locking.js";
 import {
   approveBookingState,
   assertMoveInDate,
@@ -37,11 +38,15 @@ async function renterBooking(db, userId, id) {
 
 export async function requestBooking(db, user, input) {
   await sweepExpiredDeposits(db);
-  const property = await assertVisibleProperty(db, input.propertyId);
+  if (typeof input.propertyId !== "string" || !input.propertyId.trim()) throw new HttpError(400, "Property ID is required.");
+  return propertyTransaction(db, input.propertyId, async tx => {
+  const property = await assertVisibleProperty(tx, input.propertyId);
   if (property.partnerUserId === user.id) throw new HttpError(409, "You cannot book your own listing.");
   if (!canRequestBooking(property.roomStatus)) throw new HttpError(409, "This property is not available for a new booking.");
   assertMoveInDate(input.requestedMoveInDate);
-  return db.booking.create({
+  const duplicate = await tx.booking.findFirst({ where: { propertyId: property.id, renterUserId: user.id, status: { in: ["PENDING", "DEPOSIT_PENDING", "VERIFICATION_PENDING", "CONFIRMED", "ACTIVE"] } } });
+  if (duplicate) throw new HttpError(409, "You already have an open booking for this property.");
+  return tx.booking.create({
     data: {
       propertyId: property.id,
       renterUserId: user.id,
@@ -51,6 +56,7 @@ export async function requestBooking(db, user, input) {
       monthlyRent: property.monthlyRent,
     },
     include: bookingInclude,
+  });
   });
 }
 
@@ -82,8 +88,8 @@ export async function getBookingForPartner(db, userId, id) {
 export async function approveBooking(db, user, id, input) {
   await requireApprovedPartner(db, user.id);
   await sweepExpiredDeposits(db);
-  const now = new Date();
-  return db.$transaction(async (tx) => {
+  return bookingTransaction(db, id, async (tx) => {
+    const now = new Date();
     const booking = await tx.booking.findUnique({ where: { id }, include: { property: true, renter: true } });
     if (!booking || booking.property.partnerUserId !== user.id) throw new HttpError(404, "Booking not found.");
     const next = approveBookingState({
@@ -148,8 +154,8 @@ export async function approveBooking(db, user, id, input) {
 
 export async function declineBooking(db, user, id, input) {
   await requireApprovedPartner(db, user.id);
-  const now = new Date();
-  return db.$transaction(async (tx) => {
+  return bookingTransaction(db, id, async (tx) => {
+    const now = new Date();
     const booking = await tx.booking.findUnique({ where: { id }, include: { property: true } });
     if (!booking || booking.property.partnerUserId !== user.id) throw new HttpError(404, "Booking not found.");
     const next = declineBookingState({ booking, declineReason: input.declineReason, now });
@@ -187,7 +193,7 @@ export async function uploadEvidence(db, user, id, file) {
   if (!preview || preview.renterUserId !== user.id) throw new HttpError(404, "Booking not found.");
   const decision = uploadEvidenceState({ booking: preview, now, fileName: file.fileName, fileType: file.fileType });
   if (decision.expired) {
-    await db.$transaction(async (tx) => {
+    await bookingTransaction(db, id, async (tx) => {
       const current = await tx.booking.findUnique({ where: { id } });
       if (!current || current.status !== "DEPOSIT_PENDING") return;
       await tx.booking.update({ where: { id }, data: { status: "EXPIRED" } });
@@ -195,10 +201,10 @@ export async function uploadEvidence(db, user, id, file) {
     });
     throw new HttpError(409, "The payment deadline has passed. The booking expired and the room is available again.");
   }
-  return db.$transaction(async (tx) => {
+  return bookingTransaction(db, id, async (tx) => {
     const booking = await tx.booking.findUnique({ where: { id }, include: { property: true } });
     if (!booking || booking.renterUserId !== user.id) throw new HttpError(404, "Booking not found.");
-    const next = uploadEvidenceState({ booking, now, fileName: file.fileName, fileType: file.fileType });
+    const next = uploadEvidenceState({ booking, now: new Date(), fileName: file.fileName, fileType: file.fileType });
     if (next.expired) throw new HttpError(409, "The payment deadline has passed. The booking expired and the room is available again.");
     await tx.booking.update({ where: { id }, data: next.booking });
     await tx.reservationDeposit.update({
@@ -233,8 +239,8 @@ export async function uploadEvidence(db, user, id, file) {
 
 export async function verifyEvidence(db, user, id) {
   await requireApprovedPartner(db, user.id);
-  const now = new Date();
-  return db.$transaction(async (tx) => {
+  return bookingTransaction(db, id, async (tx) => {
+    const now = new Date();
     const booking = await loadBooking(tx, id);
     if (!booking || booking.property.partnerUserId !== user.id) throw new HttpError(404, "Booking not found.");
     const evidence = booking.evidence[0];
@@ -274,8 +280,8 @@ export async function verifyEvidence(db, user, id) {
 
 export async function rejectEvidence(db, user, id, input) {
   await requireApprovedPartner(db, user.id);
-  const now = new Date();
-  return db.$transaction(async (tx) => {
+  return bookingTransaction(db, id, async (tx) => {
+    const now = new Date();
     const booking = await loadBooking(tx, id);
     if (!booking || booking.property.partnerUserId !== user.id) throw new HttpError(404, "Booking not found.");
     const evidence = booking.evidence[0];
@@ -315,8 +321,8 @@ export async function rejectEvidence(db, user, id, input) {
 
 export async function startRental(db, user, id) {
   await requireApprovedPartner(db, user.id);
-  const now = new Date();
-  return db.$transaction(async (tx) => {
+  return bookingTransaction(db, id, async (tx) => {
+    const now = new Date();
     const booking = await loadBooking(tx, id);
     if (!booking || booking.property.partnerUserId !== user.id) throw new HttpError(404, "Booking not found.");
     const next = startRentalState({ booking, roomStatus: booking.property.roomStatus, now });
@@ -339,8 +345,8 @@ export async function startRental(db, user, id) {
 
 export async function completeRental(db, user, id) {
   await requireApprovedPartner(db, user.id);
-  const now = new Date();
-  return db.$transaction(async (tx) => {
+  return bookingTransaction(db, id, async (tx) => {
+    const now = new Date();
     const booking = await loadBooking(tx, id);
     if (!booking || booking.property.partnerUserId !== user.id) throw new HttpError(404, "Booking not found.");
     const next = completeRentalState({ booking, roomStatus: booking.property.roomStatus, now });
@@ -362,8 +368,8 @@ export async function completeRental(db, user, id) {
 }
 
 export async function cancelBooking(db, user, id) {
-  const now = new Date();
-  return db.$transaction(async (tx) => {
+  return bookingTransaction(db, id, async (tx) => {
+    const now = new Date();
     const booking = await loadBooking(tx, id);
     if (!booking) throw new HttpError(404, "Booking not found.");
     const isPartner = booking.property.partnerUserId === user.id;
@@ -406,8 +412,8 @@ export async function cancelBooking(db, user, id) {
 
 export async function recordRefund(db, user, id, input) {
   await requireApprovedPartner(db, user.id);
-  const now = new Date();
-  return db.$transaction(async (tx) => {
+  return bookingTransaction(db, id, async (tx) => {
+    const now = new Date();
     const booking = await partnerBooking(tx, user.id, id);
     const next = recordRefundState({ booking, ...input });
     await tx.refund.upsert({
@@ -431,8 +437,8 @@ export async function recordRefund(db, user, id, input) {
 }
 
 export async function leaveReview(db, user, id, input) {
-  const now = new Date();
-  return db.$transaction(async (tx) => {
+  return bookingTransaction(db, id, async (tx) => {
+    const now = new Date();
     const booking = await renterBooking(tx, user.id, id);
     const next = createReviewState({ booking, existingReview: booking.review, rating: input.rating, comment: input.comment });
     await tx.review.create({

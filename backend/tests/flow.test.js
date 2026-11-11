@@ -5,8 +5,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-const futureDate = "2026-11-15";
-const deadline = "2026-12-01T09:00:00.000Z";
+const futureDate = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
+const deadline = new Date(Date.now() + 14 * 86400000).toISOString();
 
 async function listen(app) {
   return new Promise((resolve) => {
@@ -19,10 +19,10 @@ async function api(server, method, pathname, { token, body } = {}) {
   const response = await fetch(`http://127.0.0.1:${port}${pathname}`, {
     method,
     headers: {
-      ...(body ? { "content-type": "application/json" } : {}),
+      ...(body && !(body instanceof FormData) ? { "content-type": "application/json" } : {}),
       ...(token ? { authorization: `Bearer ${token}` } : {}),
     },
-    body: body ? JSON.stringify(body) : undefined,
+    body: body instanceof FormData ? body : body ? JSON.stringify(body) : undefined,
   });
   const text = await response.text();
   try {
@@ -32,6 +32,13 @@ async function api(server, method, pathname, { token, body } = {}) {
     wrapped.cause = error;
     throw wrapped;
   }
+}
+
+function listingForm() {
+  const form = new FormData();
+  for (const [key, value] of Object.entries({title:"River Apartment",propertyType:"Apartment",monthlyRent:12000,area:"Bang Rak",province:"Bangkok",description:"A bright apartment near the river.",bedrooms:1,bathrooms:1,sizeSqm:34,facilities:"Wi-Fi"})) form.append(key,String(value));
+  form.append("photos",new Blob([Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j7xkAAAAASUVORK5CYII=", "base64")],{type:"image/png"}),"river.png");
+  return form;
 }
 
 test("RoomStay API covers accounts, listings, viewings, bookings, deposits, reviews, and records", async (t) => {
@@ -44,6 +51,7 @@ test("RoomStay API covers accounts, listings, viewings, bookings, deposits, revi
   const database = await ensureDatabase({ forceEmbedded: true, dataDir, port: 0 });
   const { prisma } = await import("../src/db.js");
   const { seed } = await import("../prisma/seed.js");
+  process.env.UPLOAD_DIR = path.join(dataDir, "uploads");
   const { createApp } = await import("../src/app.js");
   await seed(prisma);
   server = await listen(createApp());
@@ -125,11 +133,21 @@ test("RoomStay API covers accounts, listings, viewings, bookings, deposits, revi
   });
   assert.equal(third.status, 409);
 
+  const missingFile = await api(server, "POST", `/api/bookings/${firstBooking.json.booking.id}/evidence`, {
+    token: renter.json.token, body: { fileName: "slip.png", fileType: "image/png" },
+  });
+  assert.equal(missingFile.status, 400);
+  const slip = new FormData();
+  slip.append("file", new Blob([Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j7xkAAAAASUVORK5CYII=", "base64")], { type: "image/png" }), "slip.png");
+  slip.append("note", "Paid at the bank");
   const evidence = await api(server, "POST", `/api/bookings/${firstBooking.json.booking.id}/evidence`, {
     token: renter.json.token,
-    body: { fileName: "slip.png", fileType: "image/png", note: "Paid at the bank" },
+    body: slip,
   });
   assert.equal(evidence.json.booking.status, "VERIFICATION_PENDING");
+  const evidencePath = evidence.json.booking.evidence.fileUrl;
+  assert.ok(evidencePath);
+
   const verified = await api(server, "POST", `/api/partner/bookings/${firstBooking.json.booking.id}/verify-evidence`, {
     token: partner.json.token,
   });
@@ -172,21 +190,15 @@ test("RoomStay API covers accounts, listings, viewings, bookings, deposits, revi
   const freshApplicant = await api(server, "POST", "/api/auth/login", { body: { email: "applicant@roomstay.test", password: "password123" } });
   const listing = await api(server, "POST", "/api/partner/listings", {
     token: freshApplicant.json.token,
-    body: {
-      title: "River Apartment",
-      propertyType: "Apartment",
-      monthlyRent: 12000,
-      area: "Bang Rak",
-      province: "Bangkok",
-      description: "A bright apartment near the river.",
-      bedrooms: 1,
-      bathrooms: 1,
-      sizeSqm: 34,
-      facilities: ["Wi-Fi"],
-      photos: [{ name: "river.jpg", type: "image/jpeg" }],
-    },
+    body: listingForm(),
   });
   assert.equal(listing.json.listing.listingStatus, "DRAFT");
+  const photoUrl = listing.json.listing.photos[0].src;
+  assert.match(photoUrl, /^\/uploads\/listings\/[a-f0-9-]+\.png$/);
+  const image = await fetch(`http://127.0.0.1:${server.address().port}${photoUrl}`);
+  assert.equal(image.status, 200);
+  assert.equal((await image.arrayBuffer()).byteLength, 68);
+
   assert.equal(listing.json.listing.location, "Bang Rak, Bangkok");
   await api(server, "POST", `/api/partner/listings/${listing.json.listing.id}/submit`, { token: freshApplicant.json.token });
   const published = await api(server, "POST", `/api/admin/listings/${listing.json.listing.id}/review`, {
@@ -204,7 +216,7 @@ test("RoomStay API covers accounts, listings, viewings, bookings, deposits, revi
   assert.equal((await api(server, "GET", `/api/properties/${listing.json.listing.id}`)).status, 404);
   const hiddenAction = await api(server, "POST", "/api/partner/listings", {
     token: freshApplicant.json.token,
-    body: listing.json.listing,
+    body: listingForm(),
   });
   assert.equal(hiddenAction.status, 403);
 

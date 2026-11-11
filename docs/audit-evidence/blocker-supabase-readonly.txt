@@ -1,0 +1,8 @@
+Read-only verification: 2026-11-11
+Supabase session pooler on port 5432: PASS
+SELECT 1: PASS
+User and Property tables accessible: PASS
+Properties: 12
+Users: 5
+Demo-domain accounts requiring review: 4
+No remote mutations or credentials printed.

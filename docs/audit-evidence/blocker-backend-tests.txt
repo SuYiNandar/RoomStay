@@ -1,0 +1,42 @@
+
+> roomstay-backend@0.1.0 test
+> node --test tests/*.test.js
+
+✔ calendar validation rejects normalized impossible dates (0.977292ms)
+✔ production refuses missing database, default secret, and missing frontend origin (0.124333ms)
+▶ extended local API audit
+  ✔ seed repeats without duplicate accounts, photos or overwriting property edits (214.667625ms)
+  ✔ all seven categories, keyword/location/price/bedroom/facilities/availability and sorting (111.338416ms)
+  ✔ registration cannot assign roles; admin routes reject guest and renter (138.294ms)
+  ✔ booking ownership, invalid transitions, competing approvals and cancellation (220.782125ms)
+  ✔ real evidence upload, rejection, resubmission and confirmation (166.067917ms)
+  ✔ renter, partner and admin payment chat with outsider rejection (58.473875ms)
+  ✔ external refund records and cancellation release room (49.4305ms)
+  ✔ viewing reschedule/decline, messages and notifications enforce ownership (136.397542ms)
+  ✔ application submission, duplicate blocking, approval and restore (103.930709ms)
+  ✔ review hide/restore updates public API, reports and audit logs (231.0805ms)
+  ✔ multipart rejects missing, spoofed, oversized and unsafe file references (153.674667ms)
+  ✔ duplicate booking transitions commit once with no duplicate side effects (249.337334ms)
+  ✔ CORS allows configured frontend and does not reflect arbitrary origins (2.199375ms)
+  ✔ missing property IDs cannot select an arbitrary listing (7.798042ms)
+✔ extended local API audit (4298.176083ms)
+✔ RoomStay API covers accounts, listings, viewings, bookings, deposits, reviews, and records (3128.906875ms)
+✔ approval reserves the room and opens the deposit (15.933417ms)
+✔ approval is refused when the room is already reserved (0.454083ms)
+✔ declining a pending request does not release the room (0.170167ms)
+✔ evidence upload waits for verification while the deadline is open (0.201625ms)
+✔ a missed deposit deadline expires the booking (0.147917ms)
+✔ verified evidence confirms the booking and keeps the room reserved (0.126334ms)
+✔ rejected evidence can be replaced before the deadline and expires after it (0.187625ms)
+✔ rental start and completion move the room from reserved to rented to available (0.156292ms)
+✔ a review is allowed once, only after completion (0.244958ms)
+✔ viewing decisions do not describe a room change (0.248459ms)
+✔ a renter can cancel a deposit hold and a partner can cancel an active rental (0.181291ms)
+ℹ tests 29
+ℹ suites 0
+ℹ pass 29
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4361.139708

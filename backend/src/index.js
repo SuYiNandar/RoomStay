@@ -1,12 +1,14 @@
 import "dotenv/config";
 import { ensureDatabase } from "./ensure-database.js";
+import { validateProductionConfig } from "./config.js";
 
+validateProductionConfig();
 const database = await ensureDatabase();
 const { prisma } = await import("./db.js");
 const { createApp } = await import("./app.js");
 const { seed } = await import("../prisma/seed.js");
 
-await seed(prisma);
+if (process.env.NODE_ENV !== "production") await seed(prisma);
 
 const port = Number(process.env.PORT || 4000);
 const app = createApp();

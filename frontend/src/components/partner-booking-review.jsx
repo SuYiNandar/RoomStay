@@ -1,4 +1,5 @@
 "use client";
+import { BookingActions } from "@/components/booking-actions";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -64,14 +65,16 @@ export function PartnerBookingReview({ bookingId }) {
         if (!user.isPartner)
             return undefined;
         const currentUser = user;
-        const timeout = window.setTimeout(() => {
+        function loadBooking() {
             const found = findMockBookingRequest(bookingId);
             const owned = found && partnerOwnsBooking(found, currentUser) ? found : null;
             setBooking(owned);
             setEvidence(owned ? findMockPaymentEvidenceForBooking(bookingId) : null);
             setRoomStatus(owned ? readMockRoomStatus(owned.propertyId, "RESERVED") : "AVAILABLE");
-        }, 0);
-        return () => window.clearTimeout(timeout);
+        }
+        const timeout = window.setTimeout(loadBooking, 0);
+        window.addEventListener("roomstay:bookings-changed", loadBooking);
+        return () => { window.clearTimeout(timeout); window.removeEventListener("roomstay:bookings-changed", loadBooking); };
     }, [bookingId, isReady, router, user]);
     if (!isReady || booking === undefined) {
         return (<section className="rounded-xl border border-line bg-white p-5 text-sm text-ink-secondary">
@@ -533,6 +536,7 @@ export function PartnerBookingReview({ bookingId }) {
                 </div>
               </>) : (<p className="mt-2 text-sm leading-6 text-ink-secondary">No payment evidence metadata was found for this booking.</p>)}
           </section>)}
+        <BookingActions booking={booking} partner />
       </section>
 
       <aside className="rounded-xl border border-line bg-white p-4 md:p-5 lg:sticky lg:top-8">
