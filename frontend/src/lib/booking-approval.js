@@ -1,5 +1,7 @@
 export const MINIMUM_DEPOSIT_AMOUNT = 1000;
+export const DEPOSIT_AMOUNT_INCREMENT = 1000;
 export const DEPOSIT_AMOUNT_ERROR = "Deposit amount must be at least ฿1,000.";
+export const DEPOSIT_INCREMENT_ERROR = "Deposit amount must be in increments of ฿1,000.";
 export const PAYMENT_DEADLINE_ERROR = "Payment deadline must be a future date and time.";
 
 const LOCAL_DATE_TIME_PATTERN = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,9}))?)?$/;
@@ -16,7 +18,9 @@ export function parseDepositAmount(value) {
 
 export function depositAmountError(value) {
     const amount = parseDepositAmount(value);
-    return amount !== null && amount >= MINIMUM_DEPOSIT_AMOUNT ? null : DEPOSIT_AMOUNT_ERROR;
+    if (amount === null || amount < MINIMUM_DEPOSIT_AMOUNT) return DEPOSIT_AMOUNT_ERROR;
+    if (!Number.isInteger(amount) || amount % DEPOSIT_AMOUNT_INCREMENT !== 0) return DEPOSIT_INCREMENT_ERROR;
+    return null;
 }
 
 export function parseDateTimeLocal(value) {
@@ -66,7 +70,8 @@ export function validateBookingApproval({ depositAmount, paymentDeadline, now = 
     const amount = parseDepositAmount(depositAmount);
     const deadline = parseDateTimeLocal(paymentDeadline);
     const errors = {};
-    if (amount === null || amount < MINIMUM_DEPOSIT_AMOUNT) errors.depositAmount = DEPOSIT_AMOUNT_ERROR;
+    const amountError = depositAmountError(depositAmount);
+    if (amountError) errors.depositAmount = amountError;
     if (!deadline || deadline.getTime() <= nowTimestamp(now)) errors.paymentDeadline = PAYMENT_DEADLINE_ERROR;
     return {
         valid: Object.keys(errors).length === 0,

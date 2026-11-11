@@ -9,6 +9,7 @@ import {
   declineBookingState,
   decideViewing,
   DEPOSIT_AMOUNT_ERROR,
+  DEPOSIT_INCREMENT_ERROR,
   PAYMENT_DEADLINE_ERROR,
   rejectEvidenceState,
   startRentalState,
@@ -41,9 +42,18 @@ test("approval enforces the THB 1,000 minimum deposit", () => {
       { message: DEPOSIT_AMOUNT_ERROR },
     );
   }
-  for (const depositAmount of [1000, 1500, 3000, 5000, "1000"]) {
+  for (const depositAmount of [1000, 2000, 5000, "1000"]) {
     const result = approveBookingState({ booking: pending, roomStatus: "AVAILABLE", depositAmount, paymentDeadline: future, now });
     assert.equal(result.booking.depositAmount, Number(depositAmount));
+  }
+});
+
+test("approval requires deposit amounts in THB 1,000 increments", () => {
+  for (const depositAmount of [1500, 2500, 1000.5, "1500"]) {
+    assert.throws(
+      () => approveBookingState({ booking: pending, roomStatus: "AVAILABLE", depositAmount, paymentDeadline: future, now }),
+      { message: DEPOSIT_INCREMENT_ERROR },
+    );
   }
 });
 
@@ -77,13 +87,13 @@ test("valid deposit and future deadline allow approval", () => {
   const result = approveBookingState({
     booking: pending,
     roomStatus: "AVAILABLE",
-    depositAmount: 1500,
+    depositAmount: 2000,
     paymentDeadline: future,
     now,
   });
   assert.equal(result.booking.status, "DEPOSIT_PENDING");
-  assert.equal(result.booking.depositAmount, 1500);
-  assert.equal(result.deposit.amount, 1500);
+  assert.equal(result.booking.depositAmount, 2000);
+  assert.equal(result.deposit.amount, 2000);
   assert.equal(result.booking.paymentDeadline.toISOString(), future);
 });
 

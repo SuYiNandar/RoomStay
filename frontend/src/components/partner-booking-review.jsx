@@ -13,7 +13,7 @@ import { useMockAuth } from "@/lib/mock-auth";
 import { properties } from "@/mocks/properties";
 import { formatBookingDate } from "@/lib/format-date";
 import { notifyMockBookingApproved, notifyMockBookingDeclined, notifyMockPaymentRejected, notifyMockPaymentVerified, } from "@/lib/mock-notifications";
-import { depositAmountError, MINIMUM_DEPOSIT_AMOUNT, paymentDeadlineError, validateBookingApproval } from "@/lib/booking-approval";
+import { DEPOSIT_AMOUNT_INCREMENT, depositAmountError, MINIMUM_DEPOSIT_AMOUNT, paymentDeadlineError, validateBookingApproval } from "@/lib/booking-approval";
 const rentFormatter = new Intl.NumberFormat("en-US");
 function formatDateTime(value) {
     if (!value)
@@ -115,10 +115,14 @@ export function PartnerBookingReview({ bookingId }) {
         const value = event.target.value;
         setDepositAmount(value);
         setErrors((current) => {
-            if (!current.depositAmount || depositAmountError(value) !== null)
+            if (!current.depositAmount)
                 return current;
             const next = { ...current };
-            delete next.depositAmount;
+            const error = depositAmountError(value);
+            if (error)
+                next.depositAmount = error;
+            else
+                delete next.depositAmount;
             return next;
         });
     }
@@ -420,7 +424,7 @@ export function PartnerBookingReview({ bookingId }) {
               <p className="mt-1 text-sm leading-6 text-ink-secondary">Approval reserves the room and moves this booking to deposit pending.</p>
               <label className="mt-4 block text-sm font-medium">
                 Deposit amount
-                <input type="number" min={MINIMUM_DEPOSIT_AMOUNT} step="1" value={depositAmount} onChange={updateDepositAmount} placeholder="Enter deposit amount" className="mt-2 h-11 w-full rounded-lg border border-line px-3 text-sm focus:ring-2 focus:ring-primary focus:outline-none"/>
+                <input type="number" min={MINIMUM_DEPOSIT_AMOUNT} step={DEPOSIT_AMOUNT_INCREMENT} value={depositAmount} onChange={updateDepositAmount} placeholder="Enter deposit amount" className="mt-2 h-11 w-full rounded-lg border border-line px-3 text-sm focus:ring-2 focus:ring-primary focus:outline-none"/>
                 {errors.depositAmount && <span className="mt-1.5 block text-xs text-alert">{errors.depositAmount}</span>}
               </label>
               <label className="mt-4 block text-sm font-medium">

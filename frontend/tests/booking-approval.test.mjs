@@ -18,6 +18,8 @@ function load(file) {
 
 const {
     DEPOSIT_AMOUNT_ERROR,
+    DEPOSIT_AMOUNT_INCREMENT,
+    DEPOSIT_INCREMENT_ERROR,
     PAYMENT_DEADLINE_ERROR,
     depositAmountError,
     parseDateTimeLocal,
@@ -28,13 +30,22 @@ const {
 
 const now = new Date(2026, 10, 11, 12, 0, 0);
 
-test("deposit regression: 999 is rejected, 1000 and 5000 are accepted", () => {
+test("deposit regression: 999 is rejected; 1000, 2000 and 5000 are accepted", () => {
+    assert.equal(DEPOSIT_AMOUNT_INCREMENT, 1000);
     assert.equal(depositAmountError(999), DEPOSIT_AMOUNT_ERROR);
     assert.equal(depositAmountError(1000), null);
+    assert.equal(depositAmountError(2000), null);
     assert.equal(depositAmountError(5000), null);
     assert.equal(depositAmountError("1000"), null);
-    assert.equal(parseDepositAmount("1500"), 1500);
+    assert.equal(parseDepositAmount("2000"), 2000);
     assert.equal(parseDepositAmount("3000"), 3000);
+});
+
+test("deposit regression: non-multiples of 1000 are rejected", () => {
+    assert.equal(depositAmountError(1500), DEPOSIT_INCREMENT_ERROR);
+    assert.equal(depositAmountError(2500), DEPOSIT_INCREMENT_ERROR);
+    assert.equal(depositAmountError(1000.5), DEPOSIT_INCREMENT_ERROR);
+    assert.equal(depositAmountError("1500"), DEPOSIT_INCREMENT_ERROR);
 });
 
 test("deposit rejects zero, negative, empty and non-numeric values", () => {
@@ -74,11 +85,13 @@ test("deadline rejects past, current and invalid datetimes", () => {
 });
 
 test("valid deposit and valid future deadline allow approval", () => {
-    const decision = validateBookingApproval({ depositAmount: 1500, paymentDeadline: "2026-11-20T21:42", now });
-    assert.equal(decision.valid, true);
-    assert.deepEqual({ ...decision.errors }, {});
-    assert.equal(decision.depositAmount, 1500);
-    assert.equal(decision.paymentDeadline, new Date(2026, 10, 20, 21, 42).toISOString());
+    for (const depositAmount of [1000, 2000, 5000]) {
+        const decision = validateBookingApproval({ depositAmount, paymentDeadline: "2026-11-20T21:42", now });
+        assert.equal(decision.valid, true);
+        assert.deepEqual({ ...decision.errors }, {});
+        assert.equal(decision.depositAmount, depositAmount);
+        assert.equal(decision.paymentDeadline, new Date(2026, 10, 20, 21, 42).toISOString());
+    }
 });
 
 test("approval is blocked unless both fields are valid", () => {
@@ -86,6 +99,11 @@ test("approval is blocked unless both fields are valid", () => {
     assert.equal(belowMinimum.valid, false);
     assert.equal(belowMinimum.errors.depositAmount, DEPOSIT_AMOUNT_ERROR);
     assert.equal(belowMinimum.errors.paymentDeadline, undefined);
+
+    const wrongIncrement = validateBookingApproval({ depositAmount: 1500, paymentDeadline: "2026-11-20T21:42", now });
+    assert.equal(wrongIncrement.valid, false);
+    assert.equal(wrongIncrement.errors.depositAmount, DEPOSIT_INCREMENT_ERROR);
+    assert.equal(wrongIncrement.errors.paymentDeadline, undefined);
 
     const pastDeadline = validateBookingApproval({ depositAmount: 1000, paymentDeadline: "2026-11-10T21:42", now });
     assert.equal(pastDeadline.valid, false);

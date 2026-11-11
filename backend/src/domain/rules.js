@@ -17,7 +17,9 @@ const GUEST_POLICIES = new Set(["ALLOWED", "LIMITED", "NOT_ALLOWED"]);
 const SUITABLE_FOR = new Set(["STUDENTS", "PROFESSIONALS", "FAMILIES"]);
 
 export const MINIMUM_DEPOSIT_AMOUNT = 1000;
+export const DEPOSIT_AMOUNT_INCREMENT = 1000;
 export const DEPOSIT_AMOUNT_ERROR = "Deposit amount must be at least ฿1,000.";
+export const DEPOSIT_INCREMENT_ERROR = "Deposit amount must be in increments of ฿1,000.";
 export const PAYMENT_DEADLINE_ERROR = "Payment deadline must be a future date and time.";
 
 function parseDepositAmount(value) {
@@ -124,6 +126,9 @@ export function approveBookingState({ booking, roomStatus, depositAmount, paymen
   if (roomStatus !== "AVAILABLE") throw new HttpError(409, "This room is not available, so the booking cannot be approved.");
   const amount = parseDepositAmount(depositAmount);
   if (amount === null || amount < MINIMUM_DEPOSIT_AMOUNT) throw new HttpError(400, DEPOSIT_AMOUNT_ERROR);
+  if (!Number.isInteger(amount) || amount % DEPOSIT_AMOUNT_INCREMENT !== 0) {
+    throw new HttpError(400, DEPOSIT_INCREMENT_ERROR);
+  }
   const deadline = parsePaymentDeadline(paymentDeadline);
   if (!deadline || deadline.getTime() <= now.getTime()) {
     throw new HttpError(400, PAYMENT_DEADLINE_ERROR);

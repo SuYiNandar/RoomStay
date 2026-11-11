@@ -3,7 +3,7 @@ import test from "node:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { assertIsoDate, DEPOSIT_AMOUNT_ERROR, PAYMENT_DEADLINE_ERROR } from "../src/domain/rules.js";
+import { assertIsoDate, DEPOSIT_AMOUNT_ERROR, DEPOSIT_INCREMENT_ERROR, PAYMENT_DEADLINE_ERROR } from "../src/domain/rules.js";
 import { validateProductionConfig } from "../src/config.js";
 
 const futureDate = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
@@ -311,6 +311,10 @@ test("extended local API audit", async (t) => {
     for (const depositAmount of [999, 0, -1, "", "not-a-number"]) {
       const rejected = await api("POST", `/api/partner/bookings/${b.id}/approve`, p, { depositAmount, paymentDeadline: deadline }, 400);
       assert.equal(rejected.error, DEPOSIT_AMOUNT_ERROR);
+    }
+    for (const depositAmount of [1500, 2500, 1000.5]) {
+      const rejected = await api("POST", `/api/partner/bookings/${b.id}/approve`, p, { depositAmount, paymentDeadline: deadline }, 400);
+      assert.equal(rejected.error, DEPOSIT_INCREMENT_ERROR);
     }
     for (const paymentDeadline of [new Date(Date.now() - 86400000).toISOString(), new Date().toISOString(), "not-a-date", ""]) {
       const rejected = await api("POST", `/api/partner/bookings/${b.id}/approve`, p, { depositAmount: 1000, paymentDeadline }, 400);
