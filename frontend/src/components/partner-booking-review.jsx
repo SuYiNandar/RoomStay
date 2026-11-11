@@ -13,11 +13,8 @@ import { useMockAuth } from "@/lib/mock-auth";
 import { properties } from "@/mocks/properties";
 import { formatBookingDate } from "@/lib/format-date";
 import { notifyMockBookingApproved, notifyMockBookingDeclined, notifyMockPaymentRejected, notifyMockPaymentVerified, } from "@/lib/mock-notifications";
+import { depositAmountError, MINIMUM_DEPOSIT_AMOUNT, paymentDeadlineError, validateBookingApproval } from "@/lib/booking-approval";
 const rentFormatter = new Intl.NumberFormat("en-US");
-function isFutureDateTime(value) {
-    const time = new Date(value).getTime();
-    return Number.isFinite(time) && time > Date.now();
-}
 function formatDateTime(value) {
     if (!value)
         return "Not provided";
@@ -114,21 +111,40 @@ export function PartnerBookingReview({ bookingId }) {
     const isVerificationPending = booking.status === "VERIFICATION_PENDING";
     const canStartRental = booking.status === "CONFIRMED" && roomStatus === "RESERVED";
     const canCompleteRental = booking.status === "ACTIVE" && roomStatus === "RENTED";
+    function updateDepositAmount(event) {
+        const value = event.target.value;
+        setDepositAmount(value);
+        setErrors((current) => {
+            if (!current.depositAmount || depositAmountError(value) !== null)
+                return current;
+            const next = { ...current };
+            delete next.depositAmount;
+            return next;
+        });
+    }
+    function updatePaymentDeadline(event) {
+        const value = event.target.value;
+        setPaymentDeadline(value);
+        setErrors((current) => {
+            if (!current.paymentDeadline || paymentDeadlineError(value) !== null)
+                return current;
+            const next = { ...current };
+            delete next.paymentDeadline;
+            return next;
+        });
+    }
     function approve(event) {
         event.preventDefault();
         if (!booking || booking.status !== "PENDING")
             return;
-        const nextErrors = {};
-        const amount = Number(depositAmount);
-        if (!Number.isFinite(amount) || amount <= 0)
-            nextErrors.depositAmount = "Deposit amount must be greater than 0.";
-        if (!paymentDeadline || !isFutureDateTime(paymentDeadline))
-            nextErrors.paymentDeadline = "Payment deadline must be a future date and time.";
-        setErrors(nextErrors);
-        if (Object.keys(nextErrors).length > 0)
+        const decision = validateBookingApproval({ depositAmount, paymentDeadline });
+        setErrors(decision.errors);
+        if (!decision.valid)
             return;
+        const amount = decision.depositAmount;
+        const deadline = decision.paymentDeadline;
         if (liveEnabled()) {
-            void liveApproveBooking(booking.id, amount, new Date(paymentDeadline).toISOString()).then((updated) => {
+            void liveApproveBooking(booking.id, amount, deadline).then((updated) => {
                 setBooking(updated);
                 setRoomStatus(readMockRoomStatus(booking.propertyId, "RESERVED"));
                 setErrors({});
@@ -142,7 +158,7 @@ export function PartnerBookingReview({ bookingId }) {
             ...booking,
             status: "DEPOSIT_PENDING",
             depositAmount: amount,
-            paymentDeadline,
+            paymentDeadline: deadline,
             approvedAt: new Date().toISOString(),
             declineReason: undefined,
             declinedAt: undefined,
@@ -404,12 +420,12 @@ export function PartnerBookingReview({ bookingId }) {
               <p className="mt-1 text-sm leading-6 text-ink-secondary">Approval reserves the room and moves this booking to deposit pending.</p>
               <label className="mt-4 block text-sm font-medium">
                 Deposit amount
-                <input type="number" min="1" step="1" value={depositAmount} onChange={(event) => setDepositAmount(event.target.value)} placeholder="Enter deposit amount" className="mt-2 h-11 w-full rounded-lg border border-line px-3 text-sm focus:ring-2 focus:ring-primary focus:outline-none"/>
+                <input type="number" min={MINIMUM_DEPOSIT_AMOUNT} step="1" value={depositAmount} onChange={updateDepositAmount} placeholder="Enter deposit amount" className="mt-2 h-11 w-full rounded-lg border border-line px-3 text-sm focus:ring-2 focus:ring-primary focus:outline-none"/>
                 {errors.depositAmount && <span className="mt-1.5 block text-xs text-alert">{errors.depositAmount}</span>}
               </label>
               <label className="mt-4 block text-sm font-medium">
                 Payment deadline
-                <input type="datetime-local" value={paymentDeadline} onChange={(event) => setPaymentDeadline(event.target.value)} className="mt-2 h-11 w-full rounded-lg border border-line px-3 text-sm focus:ring-2 focus:ring-primary focus:outline-none"/>
+                <input type="datetime-local" value={paymentDeadline} onChange={updatePaymentDeadline} className="mt-2 h-11 w-full rounded-lg border border-line px-3 text-sm focus:ring-2 focus:ring-primary focus:outline-none"/>
                 {errors.paymentDeadline && <span className="mt-1.5 block text-xs text-alert">{errors.paymentDeadline}</span>}
               </label>
               <button type="submit" className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-primary px-4 text-sm font-semibold text-white">

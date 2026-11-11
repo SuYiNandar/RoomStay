@@ -2,7 +2,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMockAuth } from "@/lib/mock-auth";
 import { formatViewingTime, viewingTimeOptions, todayDateString } from "@/lib/viewing-time";
 import { DatePicker } from "@/components/date-picker";
@@ -23,6 +23,8 @@ export function RequestViewingForm({ property }) {
     const [request, setRequest] = useState(null);
     const [formError, setFormError] = useState("");
     const [roomStatus, setRoomStatus] = useState(() => defaultRoomStatus(property.availableNow));
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const submissionPending = useRef(false);
     const returnTo = `/properties/${property.id}/request-viewing`;
     const today = todayDateString();
     useEffect(() => {
@@ -47,7 +49,7 @@ export function RequestViewingForm({ property }) {
     }, [isReady, property.availableNow, property.id, user]);
     async function submit(event) {
         event.preventDefault();
-        if (!user || roomStatus === "UNAVAILABLE")
+        if (submissionPending.current || request || !user || roomStatus === "UNAVAILABLE")
             return;
         const nextErrors = {};
         if (!date)
@@ -63,35 +65,40 @@ export function RequestViewingForm({ property }) {
         setFormError("");
         if (Object.keys(nextErrors).length > 0)
             return;
-        if (liveEnabled()) {
-            try {
+        // Ref closes the gap before React renders the disabled button.
+        submissionPending.current = true;
+        setIsSubmitting(true);
+        try {
+            if (liveEnabled()) {
                 setRequest(await liveRequestViewing({
                     propertyId: property.id,
                     viewingDate: date,
                     viewingTime: time,
                     message: message.trim(),
                 }));
+            } else {
+                const nextRequest = {
+                    id: `mock-viewing-${Date.now()}`,
+                    propertyId: property.id,
+                    propertyTitle: property.title,
+                    propertyLocation: property.location,
+                    renterId: user.id,
+                    renterName: user.fullName,
+                    viewingDate: date,
+                    viewingTime: time,
+                    message: message.trim(),
+                    status: "REQUESTED",
+                    createdAt: new Date().toISOString(),
+                };
+                saveMockViewingRequest(nextRequest);
+                setRequest(nextRequest);
             }
-            catch (error) {
-                setFormError(error instanceof ApiError ? error.message : "The viewing request could not be saved.");
-            }
-            return;
+        } catch (error) {
+            submissionPending.current = false;
+            setFormError(error instanceof ApiError ? error.message : "The viewing request could not be saved.");
+        } finally {
+            setIsSubmitting(false);
         }
-        const nextRequest = {
-            id: `mock-viewing-${Date.now()}`,
-            propertyId: property.id,
-            propertyTitle: property.title,
-            propertyLocation: property.location,
-            renterId: user.id,
-            renterName: user.fullName,
-            viewingDate: date,
-            viewingTime: time,
-            message: message.trim(),
-            status: "REQUESTED",
-            createdAt: new Date().toISOString(),
-        };
-        saveMockViewingRequest(nextRequest);
-        setRequest(nextRequest);
     }
     if (!isReady) {
         return (<div className="rounded-xl border border-line bg-white p-5 text-sm text-ink-secondary">
@@ -184,14 +191,14 @@ export function RequestViewingForm({ property }) {
             <textarea value={message} onChange={(event) => setMessage(event.target.value)} rows={5} maxLength={500} placeholder="Let the partner know your preferred details or questions." className="mt-2 w-full resize-none rounded-lg border border-line bg-white px-3 py-3 text-sm text-ink placeholder:text-ink-secondary focus:ring-2 focus:ring-primary focus:outline-none"/>
             <span className="mt-1.5 block text-right text-xs text-ink-secondary">{message.length}/500</span>
           </label>
-          {formError && <p className="text-sm text-alert">{formError}</p>}
+          {formError && <p role="alert" className="text-sm text-alert">{formError}</p>}
 
           <div className="grid gap-2 sm:grid-cols-2">
             <Link href={`/properties/${property.id}`} className="inline-flex min-h-11 items-center justify-center rounded-lg border border-line bg-white px-4 text-sm font-semibold text-ink">
               Cancel
             </Link>
-            <button type="submit" className="inline-flex min-h-11 items-center justify-center rounded-lg bg-primary px-4 text-sm font-semibold text-white btn-primary">
-              Submit Viewing Request
+            <button type="submit" disabled={isSubmitting} aria-busy={isSubmitting} className="inline-flex min-h-11 items-center justify-center rounded-lg bg-primary px-4 text-sm font-semibold text-white btn-primary">
+              {isSubmitting ? "Sending request..." : "Submit Viewing Request"}
             </button>
           </div>
         </form>

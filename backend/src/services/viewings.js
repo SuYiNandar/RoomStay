@@ -1,37 +1,53 @@
 import { assertViewingSlot, canRequestViewing, cancelViewingState, decideViewing } from "../domain/rules.js";
 import { HttpError } from "../http.js";
 import { assertVisibleProperty, requireApprovedPartner } from "./shared.js";
+import { propertyTransaction } from "./locking.js";
 
 const include = { property: true, renter: true };
 
 export async function requestViewing(db, user, input) {
-  const property = await assertVisibleProperty(db, input.propertyId);
-  if (property.partnerUserId === user.id) throw new HttpError(409, "You cannot request a viewing of your own listing.");
-  if (!canRequestViewing(property.roomStatus)) throw new HttpError(409, "Viewing requests are unavailable for this property.");
-  assertViewingSlot(input.viewingDate, input.viewingTime);
-  const viewing = await db.viewing.create({
-    data: {
-      propertyId: property.id,
-      renterId: user.id,
-      viewingDate: input.viewingDate,
-      viewingTime: input.viewingTime,
-      message: input.message?.trim() ?? "",
-      status: "REQUESTED",
-    },
-    include,
+  if (typeof input.propertyId !== "string" || !input.propertyId.trim()) throw new HttpError(400, "Property ID is required.");
+  // Serialize check-and-create across requests and backend instances using the existing row lock.
+  return propertyTransaction(db, input.propertyId, async tx => {
+    const property = await assertVisibleProperty(tx, input.propertyId);
+    if (property.partnerUserId === user.id) throw new HttpError(409, "You cannot request a viewing of your own listing.");
+    if (!canRequestViewing(property.roomStatus)) throw new HttpError(409, "Viewing requests are unavailable for this property.");
+    assertViewingSlot(input.viewingDate, input.viewingTime);
+    const duplicate = await tx.viewing.findFirst({
+      where: {
+        renterId: user.id,
+        propertyId: property.id,
+        viewingDate: input.viewingDate,
+        viewingTime: input.viewingTime,
+        status: { in: ["REQUESTED", "APPROVED", "RESCHEDULE_REQUESTED"] },
+      },
+      select: { id: true },
+    });
+    if (duplicate) throw new HttpError(409, "You already have a viewing request for this property at this date and time.");
+    const viewing = await tx.viewing.create({
+      data: {
+        propertyId: property.id,
+        renterId: user.id,
+        viewingDate: input.viewingDate,
+        viewingTime: input.viewingTime,
+        message: input.message?.trim() ?? "",
+        status: "REQUESTED",
+      },
+      include,
+    });
+    await tx.notification.create({
+      data: {
+        userId: property.partnerUserId,
+        type: "VIEWING_UPDATE",
+        title: "New viewing request",
+        message: `${user.fullName} requested a viewing for ${property.title}.`,
+        link: `/partner/viewings/${viewing.id}`,
+        relatedViewingId: viewing.id,
+        relatedPropertyId: property.id,
+      },
+    });
+    return viewing;
   });
-  await db.notification.create({
-    data: {
-      userId: property.partnerUserId,
-      type: "VIEWING_UPDATE",
-      title: "New viewing request",
-      message: `${user.fullName} requested a viewing for ${property.title}.`,
-      link: `/partner/viewings/${viewing.id}`,
-      relatedViewingId: viewing.id,
-      relatedPropertyId: property.id,
-    },
-  });
-  return viewing;
 }
 
 export async function listViewingsForUser(db, userId) {

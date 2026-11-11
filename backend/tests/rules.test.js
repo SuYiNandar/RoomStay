@@ -8,6 +8,8 @@ import {
   createReviewState,
   declineBookingState,
   decideViewing,
+  DEPOSIT_AMOUNT_ERROR,
+  PAYMENT_DEADLINE_ERROR,
   rejectEvidenceState,
   startRentalState,
   uploadEvidenceState,
@@ -30,6 +32,59 @@ test("approval reserves the room and opens the deposit", () => {
   assert.equal(result.roomStatus, "RESERVED");
   assert.equal(result.deposit.verificationStatus, "AWAITING_EVIDENCE");
   assert.match(result.deposit.paymentInstructions, /outside RoomStay/);
+});
+
+test("approval enforces the THB 1,000 minimum deposit", () => {
+  for (const depositAmount of [999, 0, -1, 19, "", "   ", "not-a-number", null, undefined]) {
+    assert.throws(
+      () => approveBookingState({ booking: pending, roomStatus: "AVAILABLE", depositAmount, paymentDeadline: future, now }),
+      { message: DEPOSIT_AMOUNT_ERROR },
+    );
+  }
+  for (const depositAmount of [1000, 1500, 3000, 5000, "1000"]) {
+    const result = approveBookingState({ booking: pending, roomStatus: "AVAILABLE", depositAmount, paymentDeadline: future, now });
+    assert.equal(result.booking.depositAmount, Number(depositAmount));
+  }
+});
+
+test("approval requires a valid future payment deadline", () => {
+  const currentTime = new Date("2026-10-10T12:00:00.000Z");
+  const valid = approveBookingState({
+    booking: pending,
+    roomStatus: "AVAILABLE",
+    depositAmount: 1000,
+    paymentDeadline: "2026-11-20T21:42:00.000Z",
+    now: currentTime,
+  });
+  assert.equal(valid.booking.paymentDeadline.toISOString(), "2026-11-20T21:42:00.000Z");
+  for (const paymentDeadline of [
+    "2026-10-01T00:00:00.000Z",
+    currentTime,
+    "2026-10-10T12:00:00.000Z",
+    "not-a-date",
+    "20/11/2026 21:42",
+    "",
+    null,
+  ]) {
+    assert.throws(
+      () => approveBookingState({ booking: pending, roomStatus: "AVAILABLE", depositAmount: 1000, paymentDeadline, now: currentTime }),
+      { message: PAYMENT_DEADLINE_ERROR },
+    );
+  }
+});
+
+test("valid deposit and future deadline allow approval", () => {
+  const result = approveBookingState({
+    booking: pending,
+    roomStatus: "AVAILABLE",
+    depositAmount: 1500,
+    paymentDeadline: future,
+    now,
+  });
+  assert.equal(result.booking.status, "DEPOSIT_PENDING");
+  assert.equal(result.booking.depositAmount, 1500);
+  assert.equal(result.deposit.amount, 1500);
+  assert.equal(result.booking.paymentDeadline.toISOString(), future);
 });
 
 test("approval is refused when the room is already reserved", () => {

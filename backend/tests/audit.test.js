@@ -3,7 +3,7 @@ import test from "node:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { assertIsoDate } from "../src/domain/rules.js";
+import { assertIsoDate, DEPOSIT_AMOUNT_ERROR, PAYMENT_DEADLINE_ERROR } from "../src/domain/rules.js";
 import { validateProductionConfig } from "../src/config.js";
 
 const futureDate = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
@@ -166,7 +166,7 @@ test("extended local API audit", async (t) => {
     await api("GET", `/api/viewings/${view.viewing.id}`, o, null, 404);
     await api("POST", `/api/partner/viewings/${view.viewing.id}/decision`, p, { status: "RESCHEDULE_REQUESTED", partnerSuggestedDate: futureDate, partnerSuggestedTime: "11:00" });
     await api("POST", `/api/partner/viewings/${view.viewing.id}/decision`, p, { status: "APPROVED" }, 409);
-    const decline = await api("POST", "/api/viewings", r, { propertyId: "cozy-condo", viewingDate: futureDate, viewingTime: "10:00" }, 201);
+    const decline = await api("POST", "/api/viewings", r, { propertyId: "cozy-condo", viewingDate: futureDate, viewingTime: "12:00" }, 201);
     await api("POST", `/api/partner/viewings/${decline.viewing.id}/decision`, p, { status: "DECLINED", declineReason: "Unavailable at that time" });
     const convo = await api("POST", "/api/conversations", r, { propertyId: "cozy-condo", text: "Hello" }, 201);
     await api("GET", `/api/conversations/${convo.conversation.id}`, o, null, 404);
@@ -265,6 +265,63 @@ test("extended local API audit", async (t) => {
     await api("POST", "/api/bookings", r, { requestedMoveInDate: futureDate }, 400);
     await api("POST", "/api/viewings", r, { viewingDate: futureDate, viewingTime: "10:00" }, 400);
     await api("POST", "/api/conversations", r, { text: "Missing property" }, 400);
+  });
+  await t.test("viewing duplicate protection", async (t) => {
+    const slot = { propertyId: "bu-campus-apartment", viewingDate: new Date(Date.now() + 45 * 86400000).toISOString().slice(0, 10), viewingTime: "10:00" };
+    const conflict = "You already have a viewing request for this property at this date and time.";
+    const create = (body = slot, token = r, expected = 201) => api("POST", "/api/viewings", token, body, expected);
+    let first;
+    await t.test("first request succeeds", async () => {
+      first = (await create()).viewing;
+      assert.equal(first.status, "REQUESTED");
+    });
+    for (const status of ["REQUESTED", "APPROVED", "RESCHEDULE_REQUESTED"]) {
+      await t.test(`identical ${status} request is rejected without extra rows or notifications`, async () => {
+        await prisma.viewing.update({ where: { id: first.id }, data: { status } });
+        const before = [await prisma.viewing.count(), await prisma.notification.count()];
+        assert.equal((await create(slot, r, 409)).error, conflict);
+        assert.deepEqual([await prisma.viewing.count(), await prisma.notification.count()], before);
+      });
+    }
+    await t.test("different date succeeds", async () => {
+      await create({ ...slot, viewingDate: new Date(Date.now() + 46 * 86400000).toISOString().slice(0, 10) });
+    });
+    await t.test("different time succeeds", async () => { await create({ ...slot, viewingTime: "11:00" }); });
+    await t.test("different property succeeds", async () => { await create({ ...slot, propertyId: "rsu-area-apartment" }); });
+    await t.test("different renter succeeds", async () => { await create(slot, o); });
+    await t.test("declined old request allows a new request", async () => {
+      await prisma.viewing.update({ where: { id: first.id }, data: { status: "DECLINED" } });
+      const next = (await create()).viewing;
+      assert.notEqual(next.id, first.id);
+      assert.equal(next.status, "REQUESTED");
+    });
+    await t.test("simultaneous identical requests create one viewing and one notification", async () => {
+      const body = { ...slot, viewingTime: "12:00" };
+      const responses = await Promise.all([1, 2].map(() => fetch(base + "/api/viewings", {
+        method: "POST", headers: { authorization: `Bearer ${r}`, "content-type": "application/json" }, body: JSON.stringify(body),
+      })));
+      assert.deepEqual(responses.map(response => response.status).sort(), [201, 409]);
+      const rows = await prisma.viewing.findMany({ where: { renterId: renter.user.id, ...body } });
+      assert.equal(rows.length, 1);
+      assert.equal(await prisma.notification.count({ where: { relatedViewingId: rows[0].id } }), 1);
+    });
+  });
+  await t.test("approval validates deposit minimum and future deadline", async () => {
+    const b = await booking("garden-house");
+    for (const depositAmount of [999, 0, -1, "", "not-a-number"]) {
+      const rejected = await api("POST", `/api/partner/bookings/${b.id}/approve`, p, { depositAmount, paymentDeadline: deadline }, 400);
+      assert.equal(rejected.error, DEPOSIT_AMOUNT_ERROR);
+    }
+    for (const paymentDeadline of [new Date(Date.now() - 86400000).toISOString(), new Date().toISOString(), "not-a-date", ""]) {
+      const rejected = await api("POST", `/api/partner/bookings/${b.id}/approve`, p, { depositAmount: 1000, paymentDeadline }, 400);
+      assert.equal(rejected.error, PAYMENT_DEADLINE_ERROR);
+    }
+    const stillPending = (await api("GET", `/api/bookings/${b.id}`, r)).booking;
+    assert.equal(stillPending.status, "PENDING");
+    const approved = await api("POST", `/api/partner/bookings/${b.id}/approve`, p, { depositAmount: 1000, paymentDeadline: deadline });
+    assert.equal(approved.booking.status, "DEPOSIT_PENDING");
+    assert.equal(approved.booking.depositAmount, 1000);
+    await api("POST", `/api/bookings/${b.id}/cancel`, r);
   });
   const d1 = await booking("garden-house");
   await api("POST", "/api/bookings", r, { propertyId: "garden-house", requestedMoveInDate: futureDate }, 409);

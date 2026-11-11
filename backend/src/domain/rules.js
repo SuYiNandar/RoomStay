@@ -16,6 +16,26 @@ export const HOLDING_BOOKING_STATUSES = [
 const GUEST_POLICIES = new Set(["ALLOWED", "LIMITED", "NOT_ALLOWED"]);
 const SUITABLE_FOR = new Set(["STUDENTS", "PROFESSIONALS", "FAMILIES"]);
 
+export const MINIMUM_DEPOSIT_AMOUNT = 1000;
+export const DEPOSIT_AMOUNT_ERROR = "Deposit amount must be at least ฿1,000.";
+export const PAYMENT_DEADLINE_ERROR = "Payment deadline must be a future date and time.";
+
+function parseDepositAmount(value) {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value === "string" && value.trim() !== "") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function parsePaymentDeadline(value) {
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : new Date(value.getTime());
+  if (typeof value !== "string" || value.trim() === "") return null;
+  const deadline = new Date(value);
+  return Number.isNaN(deadline.getTime()) ? null : deadline;
+}
+
 export function todayDateString(now = new Date()) {
   const localDate = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
   return localDate.toISOString().slice(0, 10);
@@ -102,11 +122,11 @@ export function decideViewing(viewing, decision) {
 export function approveBookingState({ booking, roomStatus, depositAmount, paymentDeadline, now }) {
   if (booking.status !== "PENDING") throw new HttpError(409, "Only a pending booking can be approved.");
   if (roomStatus !== "AVAILABLE") throw new HttpError(409, "This room is not available, so the booking cannot be approved.");
-  const amount = Number(depositAmount);
-  if (!Number.isFinite(amount) || amount <= 0) throw new HttpError(400, "Deposit amount must be greater than 0.");
-  const deadline = new Date(paymentDeadline);
-  if (Number.isNaN(deadline.getTime()) || deadline <= now) {
-    throw new HttpError(400, "Payment deadline must be a future date and time.");
+  const amount = parseDepositAmount(depositAmount);
+  if (amount === null || amount < MINIMUM_DEPOSIT_AMOUNT) throw new HttpError(400, DEPOSIT_AMOUNT_ERROR);
+  const deadline = parsePaymentDeadline(paymentDeadline);
+  if (!deadline || deadline.getTime() <= now.getTime()) {
+    throw new HttpError(400, PAYMENT_DEADLINE_ERROR);
   }
   const rounded = Math.round(amount);
   return {
