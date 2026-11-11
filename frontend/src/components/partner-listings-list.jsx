@@ -78,7 +78,7 @@ export function PartnerListingsList() {
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="text-base font-semibold tracking-[-0.025em]">{listing.title}</h2>
+                    <h2 className="text-base font-semibold tracking-[-0.025em]">{listing.title.trim() || "Untitled draft"}</h2>
                     <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${listingStatusTone(listing.listingStatus)}`}>
                       {listingStatusLabel(listing.listingStatus)}
                     </span>
@@ -86,9 +86,9 @@ export function PartnerListingsList() {
                       Room: {roomStatusLabel(listing.roomStatus)}
                     </span>
                   </div>
-                  <p className="mt-1 text-sm text-ink-secondary">{listing.location} · {listing.propertyType}</p>
+                  <p className="mt-1 text-sm text-ink-secondary">{[listing.location, listing.propertyType].filter(Boolean).join(" · ") || "Details not set"}</p>
                   <p className="mt-1 text-sm text-ink-secondary">
-                    <span className="font-medium text-ink">฿{rentFormatter.format(listing.monthlyRent)}</span> / month · {listing.photos.length} photo{listing.photos.length === 1 ? "" : "s"}
+                    {listing.monthlyRent > 0 ? (<><span className="font-medium text-ink">฿{rentFormatter.format(listing.monthlyRent)}</span> / month</>) : "Rent not set"} · {listing.photos.length} photo{listing.photos.length === 1 ? "" : "s"}
                   </p>
                   <p className="mt-1 text-xs text-ink-secondary">Created {formatBookingDate(listing.createdAt)}</p>
                   {listing.listingStatus === "REJECTED" && listing.rejectionReason && (<p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs leading-5 text-ink-secondary">

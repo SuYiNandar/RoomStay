@@ -10,7 +10,7 @@ function load(file, overrides = {}, globals = {}) {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2021 },
   }).outputText;
   const loaded = { exports: {} };
-  vm.runInNewContext(code, { module: loaded, exports: loaded.exports, require: key => overrides[key] ?? require(key), FormData, Blob, Event, ...globals });
+  vm.runInNewContext(code, { module: loaded, exports: loaded.exports, require: key => overrides[key] ?? require(key), FormData, Blob, Event, Headers, ...globals });
   return loaded.exports;
 }
 function actionHarness() {
@@ -33,6 +33,9 @@ test("listing and application actions submit actual multipart bytes", async () =
   await actions.liveSubmitPartnerApplication({ fullName: "Applicant", idDocument: file, ownershipDocument: file });
   assert.equal(await requests[1].body.get("idDocument").text(), "actual-file-bytes");
   assert.equal(await requests[1].body.get("ownershipDocument").text(), "actual-file-bytes");
+  await actions.liveSubmitListing("property");
+  assert.equal(requests[2].method, "POST");
+  assert.equal(requests[2].path, "/api/partner/listings/property/submit");
 });
 test("cancel, refund and report controls use existing API contracts and refresh events", async () => {
   const { actions, requests, events } = actionHarness();
@@ -52,10 +55,27 @@ test("private file fetch sends auth header, disables caching and rejects externa
     fetch: async (url, init) => { request = { url, init }; return { ok: true, blob: async () => new Blob(["image"]) }; },
   });
   await api.apiBlob("/api/evidence/id/file");
-  assert.equal(request.url, "https://api.example/api/evidence/id/file");
+  assert.equal(request.url, "/api/evidence/id/file");
   assert.equal(request.init.headers.authorization, "Bearer private-token");
   assert.equal(request.init.cache, "no-store");
   await assert.rejects(api.apiBlob("https://untrusted.example/file"), /Invalid private file/);
+});
+test("each API request uses the current token and bypasses shared caches", async () => {
+  let token = "renter-token";
+  const requests = [];
+  const api = load("../src/lib/api.js", {}, {
+    window: { localStorage: { getItem: () => token } },
+    fetch: async (url, init) => {
+      requests.push({ url, init });
+      return { ok: true, text: async () => JSON.stringify({ ok: true }) };
+    },
+  });
+  await api.api("/api/me");
+  token = "partner-token";
+  await api.api("/api/me");
+  assert.deepEqual(requests.map(item => item.url), ["/api/me", "/api/me"]);
+  assert.deepEqual(requests.map(item => item.init.headers.get("authorization")), ["Bearer renter-token", "Bearer partner-token"]);
+  assert.ok(requests.every(item => item.init.cache === "no-store"));
 });
 function refreshHarness() {
   const store = load("../src/lib/live-store.js");

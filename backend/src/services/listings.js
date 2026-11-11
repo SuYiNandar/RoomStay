@@ -11,21 +11,41 @@ const photoSchema = z.object({
   alt: z.string().trim().optional(),
 });
 
-const listingSchema = z.object({
-  title: z.string().trim().min(1, "Title is required."),
-  propertyType: z.string().trim().min(1, "Property type is required."),
-  monthlyRent: z.coerce.number().int().positive("Monthly rent must be greater than 0."),
-  location: z.string().trim().optional().default(""),
-  buildingName: z.string().trim().optional(),
-  fullAddress: z.string().trim().optional(),
-  area: z.string().trim().optional(),
-  province: z.string().trim().optional(),
-  description: z.string().trim().min(1, "Description is required."),
-  bedrooms: z.coerce.number().int().min(0),
-  bathrooms: z.coerce.number().int().min(0),
-  sizeSqm: z.coerce.number().int().positive("Size must be greater than 0."),
+const draftText = z.preprocess((value) => value ?? "", z.string().trim());
+const optionalText = z.preprocess((value) => value ?? undefined, z.string().trim().optional());
+const requiredText = (message) => z.preprocess((value) => value ?? "", z.string().trim().min(1, message));
+
+const draftListingSchema = z.object({
+  title: draftText,
+  propertyType: draftText,
+  monthlyRent: z.coerce.number().int().min(0, "Monthly rent cannot be negative.").optional().default(0),
+  location: draftText,
+  buildingName: optionalText,
+  fullAddress: optionalText,
+  area: optionalText,
+  province: optionalText,
+  description: draftText,
+  bedrooms: z.coerce.number().int().min(0, "Bedrooms cannot be negative.").optional().default(0),
+  bathrooms: z.coerce.number().int().min(0, "Bathrooms cannot be negative.").optional().default(0),
+  sizeSqm: z.coerce.number().int().min(0, "Size cannot be negative.").optional().default(0),
   facilities: z.array(z.string()).optional().default([]),
   photos: z.array(photoSchema).optional().default([]),
+  houseRules: z.any().optional(),
+});
+
+const submissionSchema = z.object({
+  title: requiredText("Property title is required before submitting."),
+  propertyType: requiredText("Property type is required before submitting."),
+  monthlyRent: z.coerce.number().int().min(1, "Monthly rent must be greater than 0 before submitting."),
+  location: requiredText("Location is required before submitting."),
+  buildingName: optionalText,
+  fullAddress: optionalText,
+  area: optionalText,
+  province: optionalText,
+  description: requiredText("Description is required before submitting."),
+  bedrooms: z.coerce.number().int().min(0, "Bedrooms must be 0 or more before submitting."),
+  bathrooms: z.coerce.number().int().min(0, "Bathrooms must be 0 or more before submitting."),
+  sizeSqm: z.coerce.number().int().positive("Size must be greater than 0 before submitting."),
   houseRules: z.any().optional(),
 });
 
@@ -36,13 +56,11 @@ function parse(schema, input) {
 }
 
 function listingData(input) {
-  const location = displayLocation(input);
-  if (!location) throw new HttpError(400, "Location is required.");
   return {
     title: input.title,
     propertyType: input.propertyType,
     monthlyRent: input.monthlyRent,
-    location,
+    location: displayLocation(input),
     buildingName: input.buildingName || null,
     fullAddress: input.fullAddress || null,
     area: input.area || null,
@@ -71,7 +89,7 @@ const include = { photos: { orderBy: { sortOrder: "asc" } } };
 
 export async function createListing(db, user, input) {
   await requireApprovedPartner(db, user.id);
-  const data = parse(listingSchema, normalizeBody(input));
+  const data = parse(draftListingSchema, normalizeBody(input));
   const property = await db.property.create({
     data: {
       ...listingData(data),
@@ -92,11 +110,13 @@ export async function updateListing(db, user, id, input) {
   if (existing.listingStatus !== "DRAFT" && existing.listingStatus !== "REJECTED") {
     throw new HttpError(409, "Only a draft or rejected listing can be edited.");
   }
-  const data = parse(listingSchema, normalizeBody(input));
+  const data = parse(draftListingSchema, normalizeBody(input));
   return db.property.update({
     where: { id },
     data: {
       ...listingData(data),
+      listingStatus: "DRAFT",
+      rejectionReason: null,
       photos: { deleteMany: {}, create: photoRows(id, data.photos).map(({ propertyId, ...photo }) => photo) },
     },
     include,
@@ -110,6 +130,7 @@ export async function submitListing(db, user, id) {
   if (existing.listingStatus !== "DRAFT" && existing.listingStatus !== "REJECTED") {
     throw new HttpError(409, "Only a draft or rejected listing can be submitted.");
   }
+  parse(submissionSchema, existing);
   if (existing.photos.length < 1) throw new HttpError(400, "At least one photo is required before submission.");
   return db.property.update({
     where: { id },

@@ -91,7 +91,6 @@ async function listingBody(req) {
     if (!photo) throw new HttpError(400, "Only this listing's existing photos may be retained.");
     return photo;
   });
-  if (!photos.length && !req.files?.length) throw new HttpError(400, "At least one photo is required.");
   if (photos.length + (req.files?.length || 0) > 8) throw new HttpError(400, "Upload at most 8 photos.");
   const stored = [];
   try {
@@ -109,7 +108,12 @@ export function createApp() {
   app.use(cookieParser());
   app.use(express.json({ limit: "1mb" }));
   app.use("/uploads/listings", express.static(path.join(uploadRoot, "listings"), { dotfiles: "deny", setHeaders: res => res.set("X-Content-Type-Options", "nosniff") }));
-  app.use("/api", (_req, res, next) => { res.set("Cache-Control", "private, no-store"); next(); });
+  app.use("/api", (_req, res, next) => {
+    res.set("Cache-Control", "private, no-store");
+    res.vary("Authorization");
+    res.vary("Cookie");
+    next();
+  });
   privateFileRoutes(app, prisma);
 
   app.get("/api/health", asyncRoute(async (_req, res) => {

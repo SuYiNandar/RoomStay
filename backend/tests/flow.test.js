@@ -34,10 +34,10 @@ async function api(server, method, pathname, { token, body } = {}) {
   }
 }
 
-function listingForm() {
+function listingForm({ withPhoto = true } = {}) {
   const form = new FormData();
   for (const [key, value] of Object.entries({title:"River Apartment",propertyType:"Apartment",monthlyRent:12000,area:"Bang Rak",province:"Bangkok",description:"A bright apartment near the river.",bedrooms:1,bathrooms:1,sizeSqm:34,facilities:"Wi-Fi"})) form.append(key,String(value));
-  form.append("photos",new Blob([Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j7xkAAAAASUVORK5CYII=", "base64")],{type:"image/png"}),"river.png");
+  if (withPhoto) form.append("photos",new Blob([Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j7xkAAAAASUVORK5CYII=", "base64")],{type:"image/png"}),"river.png");
   return form;
 }
 
@@ -188,6 +188,54 @@ test("RoomStay API covers accounts, listings, viewings, bookings, deposits, revi
   });
   assert.equal(granted.json.application.status, "APPROVED");
   const freshApplicant = await api(server, "POST", "/api/auth/login", { body: { email: "applicant@roomstay.test", password: "password123" } });
+
+  const emptyDraft = await api(server, "POST", "/api/partner/listings", {
+    token: freshApplicant.json.token,
+    body: new FormData(),
+  });
+  assert.equal(emptyDraft.status, 201);
+  assert.equal(emptyDraft.json.listing.listingStatus, "DRAFT");
+  assert.equal(emptyDraft.json.listing.title, "");
+  assert.equal(emptyDraft.json.listing.monthlyRent, 0);
+  assert.deepEqual(emptyDraft.json.listing.photos, []);
+  const incompleteSubmit = await api(server, "POST", `/api/partner/listings/${emptyDraft.json.listing.id}/submit`, {
+    token: freshApplicant.json.token,
+  });
+  assert.equal(incompleteSubmit.status, 400);
+  assert.match(incompleteSubmit.json.error, /title is required/i);
+
+  const partialDraftForm = new FormData();
+  partialDraftForm.append("title", "Early riverside draft");
+  partialDraftForm.append("monthlyRent", "9000");
+  const partialDraft = await api(server, "PATCH", `/api/partner/listings/${emptyDraft.json.listing.id}`, {
+    token: freshApplicant.json.token,
+    body: partialDraftForm,
+  });
+  assert.equal(partialDraft.json.listing.listingStatus, "DRAFT");
+  assert.equal(partialDraft.json.listing.title, "Early riverside draft");
+  assert.equal(partialDraft.json.listing.monthlyRent, 9000);
+  assert.equal(partialDraft.json.listing.description, "");
+
+  const photoRequired = await api(server, "POST", "/api/partner/listings", {
+    token: freshApplicant.json.token,
+    body: listingForm({ withPhoto: false }),
+  });
+  assert.equal(photoRequired.status, 201);
+  const noPhotoSubmit = await api(server, "POST", `/api/partner/listings/${photoRequired.json.listing.id}/submit`, {
+    token: freshApplicant.json.token,
+  });
+  assert.equal(noPhotoSubmit.status, 400);
+  assert.match(noPhotoSubmit.json.error, /photo is required/i);
+  const readyDraft = await api(server, "PATCH", `/api/partner/listings/${photoRequired.json.listing.id}`, {
+    token: freshApplicant.json.token,
+    body: listingForm(),
+  });
+  assert.equal(readyDraft.json.listing.photos.length, 1);
+  const readySubmit = await api(server, "POST", `/api/partner/listings/${photoRequired.json.listing.id}/submit`, {
+    token: freshApplicant.json.token,
+  });
+  assert.equal(readySubmit.json.listing.listingStatus, "PENDING_REVIEW");
+
   const listing = await api(server, "POST", "/api/partner/listings", {
     token: freshApplicant.json.token,
     body: listingForm(),

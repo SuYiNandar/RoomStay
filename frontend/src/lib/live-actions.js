@@ -170,7 +170,13 @@ export async function liveSubmitPartnerApplication(input) {
     changed("roomstay:partner-applications-changed");
     return data.application;
 }
-export async function liveSaveListing(input, submit) {
+function storeListing(listing) {
+    upsertLive("listings", listing);
+    writeLiveRoomStatus(listing.id, listing.roomStatus);
+    changed("roomstay:listings-changed");
+    return listing;
+}
+export async function liveSaveListing(input, submit = false) {
     const fields = {
         title: input.title,
         propertyType: input.propertyType,
@@ -197,13 +203,12 @@ export async function liveSaveListing(input, submit) {
     const saved = input.id
         ? await api(`/api/partner/listings/${input.id}`, { method: "PATCH", body })
         : await api("/api/partner/listings", { method: "POST", body });
-    const listing = submit
-        ? (await api(`/api/partner/listings/${saved.listing.id}/submit`, { method: "POST" })).listing
-        : saved.listing;
-    upsertLive("listings", listing);
-    writeLiveRoomStatus(listing.id, listing.roomStatus);
-    changed("roomstay:listings-changed");
-    return listing;
+    if (submit) return liveSubmitListing(saved.listing.id);
+    return storeListing(saved.listing);
+}
+export async function liveSubmitListing(id) {
+    const data = await api(`/api/partner/listings/${id}/submit`, { method: "POST" });
+    return storeListing(data.listing);
 }
 function syncDirectoryApplication(application) {
     writeLive("users", readLive("users").map((person) => person.id === application.userId

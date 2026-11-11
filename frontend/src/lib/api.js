@@ -34,7 +34,7 @@ export async function api(path, init = {}) {
     if (init.body && !(init.body instanceof FormData) && !headers.has("content-type")) {
         headers.set("content-type", "application/json");
     }
-    const response = await fetch(`${apiBase()}${path}`, { ...init, headers });
+    const response = await fetch(`${apiBase()}${path}`, { ...init, cache: "no-store", headers });
     const text = await response.text();
     const data = text ? JSON.parse(text) : {};
     if (!response.ok)
