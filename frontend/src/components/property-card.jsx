@@ -1,4 +1,4 @@
-import Image from "next/image";
+import { PropertyImage } from "@/components/property-image";
 import Link from "next/link";
 import { FavoriteButton } from "@/components/favorite-button";
 import { Icon } from "@/components/icon";
@@ -9,7 +9,7 @@ export function PropertyCard({ property, preload = false, showDetailsButton = fa
       <div className="relative">
         <Link href={`/properties/${property.id}`} aria-label={`View details for ${property.title}`} className="block rounded-lg">
           <div className={`relative overflow-hidden bg-photo transition-shadow duration-300 group-hover:shadow-lg group-hover:shadow-ink/10 ${showMeta ? "aspect-[16/10.7] rounded-[10px]" : showTags ? "aspect-[16/11] rounded-[10px]" : "aspect-[5/3] rounded-lg"}`}>
-            <Image src={property.image} alt={property.imageAlt} fill preload={preload} sizes="(min-width: 1440px) 318px, (min-width: 1280px) calc((100vw - 168px) / 4), (min-width: 1024px) calc((100vw - 112px) / 3), (min-width: 768px) calc((100vw - 88px) / 2), calc(100vw - 44px)" className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]"/>
+            <PropertyImage src={property.image} alt={property.imageAlt} fill preload={preload} sizes="(min-width: 1440px) 318px, (min-width: 1280px) calc((100vw - 168px) / 4), (min-width: 1024px) calc((100vw - 112px) / 3), (min-width: 768px) calc((100vw - 88px) / 2), calc(100vw - 44px)" className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]"/>
           </div>
         </Link>
         <FavoriteButton propertyId={property.id} propertyTitle={property.title} returnTo={`/properties/${property.id}`}/>
