@@ -34,11 +34,15 @@ function supabaseUrl(raw) {
 async function ensureViewingCancelled() {
   const prismaCli = path.join(root, "node_modules/prisma/build/index.js");
   try {
-    await execFileAsync(process.execPath, [prismaCli, "db", "execute", "--stdin"], {
+    const execution = execFileAsync(process.execPath, [prismaCli, "db", "execute", "--schema", path.join(root, "prisma/schema.prisma"), "--stdin"], {
       cwd: root,
       env: process.env,
-      input: `ALTER TYPE "ViewingStatus" ADD VALUE IF NOT EXISTS 'CANCELLED';`,
+      timeout: 30000,
+      killSignal: "SIGKILL",
     });
+    execution.child.stdin.on("error", () => {}); // Process failures are reported by execution.
+    execution.child.stdin.end(`ALTER TYPE "ViewingStatus" ADD VALUE IF NOT EXISTS 'CANCELLED';`);
+    await execution;
   } catch (error) {
     const message = String(error.stderr || error.message || "unknown error").replace(/postgres(?:ql)?:\/\/\S+/gi, "[url]");
     console.error(`ViewingStatus CANCELLED was not added: ${message.split("\n")[0]}`);
@@ -53,16 +57,27 @@ async function pushSchema(acceptDataLoss) {
     "--skip-generate",
   ];
   if (acceptDataLoss) args.push("--accept-data-loss");
-  await execFileAsync(process.execPath, args, { cwd: root, env: process.env });
+  await execFileAsync(process.execPath, args, { cwd: root, env: process.env, timeout: 60000, killSignal: "SIGKILL" });
 }
 
 export async function ensureDatabase(options = {}) {
+  if (process.env.NODE_ENV === "production" && (options.forceEmbedded || !process.env.DATABASE_URL)) {
+    throw new Error("Production requires an external DATABASE_URL; embedded PostgreSQL is disabled.");
+  }
   if (!options.forceEmbedded && process.env.DATABASE_URL) {
     const supabase = isSupabase(process.env.DATABASE_URL);
     if (supabase) process.env.DATABASE_URL = supabaseUrl(process.env.DATABASE_URL);
-    await ensureViewingCancelled();
-    // Production schema changes are an explicit deployment step.
-    if (process.env.NODE_ENV !== "production") await pushSchema(false);
+    const url = new URL(process.env.DATABASE_URL);
+    for (const key of ["connect_timeout", "pool_timeout"]) {
+      const seconds = Number(url.searchParams.get(key));
+      if (!Number.isFinite(seconds) || seconds <= 0) url.searchParams.set(key, "10");
+    }
+    process.env.DATABASE_URL = url.toString();
+    // Production schema changes are an explicit deployment step, never startup work.
+    if (process.env.NODE_ENV !== "production") {
+      await ensureViewingCancelled();
+      await pushSchema(false);
+    }
     return { embedded: false, provider: supabase ? "supabase" : "postgres", async stop() {} };
   }
 
