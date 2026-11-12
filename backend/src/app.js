@@ -85,7 +85,7 @@ async function listingBody(req) {
   if (!Array.isArray(kept) || kept.some(src => typeof src !== "string")) throw new HttpError(400, "Existing photos are invalid.");
   const existing = req.params.id ? await prisma.property.findUnique({ where: { id: req.params.id }, include: { photos: true } }) : null;
   if (req.params.id && (!existing || existing.partnerUserId !== req.user.id)) throw new HttpError(404, "Listing not found.");
-  if (existing && !["DRAFT", "REJECTED"].includes(existing.listingStatus)) throw new HttpError(409, "Only a draft or rejected listing can be edited.");
+  if (existing && !["DRAFT", "REJECTED", "PUBLISHED"].includes(existing.listingStatus)) throw new HttpError(409, "Only a draft, rejected, or published listing can be edited.");
   const photos = kept.map(src => {
     const photo = existing?.photos.find(item => item.src === src);
     if (!photo) throw new HttpError(400, "Only this listing's existing photos may be retained.");

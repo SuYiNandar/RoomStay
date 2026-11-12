@@ -2,7 +2,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { ApiError } from "@/lib/api";
+import { PropertyImage } from "@/components/property-image";
+import { ApiError, publicImageUrl } from "@/lib/api";
 import { liveSaveListing, liveSubmitListing } from "@/lib/live-actions";
 import { liveEnabled } from "@/lib/live-store";
 import { useMockAuth } from "@/lib/mock-auth";
@@ -157,7 +158,7 @@ export function PartnerListingForm({ listingId }) {
         return (<section className="rounded-xl border border-line bg-white px-5 py-14 text-center">
         <h1 className="text-2xl font-semibold tracking-[-0.025em]">Listing cannot be edited</h1>
         <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-ink-secondary">
-          Only draft or rejected listings belonging to your account can be edited.
+          Only draft, rejected, or published listings belonging to your account can be edited. Pending and suspended listings cannot be edited.
         </p>
         <Link href="/partner/listings" className="mt-6 inline-flex min-h-11 items-center justify-center rounded-lg bg-primary px-5 text-sm font-semibold text-white btn-primary">
           Back to My Listings
@@ -320,6 +321,8 @@ export function PartnerListingForm({ listingId }) {
                 if (!saved?.id)
                     throw new Error("The listing was not saved.");
                 setDraftId(saved.id);
+                setKeptPhotos(saved.photos);
+                setNewPhotos([]);
                 if (requiresReview)
                     await liveSubmitListing(saved.id);
             }
@@ -339,7 +342,8 @@ export function PartnerListingForm({ listingId }) {
                     houseRules,
                     listingStatus,
                     updatedAt: now,
-                    submittedAt: listingStatus === "PENDING_REVIEW" ? now : existing.submittedAt,
+                    submittedAt: listingStatus === "PENDING_REVIEW" ? now : undefined,
+                    reviewedAt: undefined,
                     // The previous rejection reason described older content.
                     rejectionReason: undefined,
                 });
@@ -393,7 +397,7 @@ export function PartnerListingForm({ listingId }) {
         <h1 className="text-2xl font-semibold tracking-[-0.025em]">{existing ? "Edit Listing" : "Create Listing"}</h1>
         <p className="mt-2 text-sm leading-6 text-ink-secondary">
           {existing
-            ? "Update your draft or rejected listing, then save or resubmit it for review."
+            ? "Save changes as a non-public draft, or submit them for Admin review. Editing a published listing takes it offline until approved again."
             : "Add your property details below. Save as a draft or submit it for Admin review."}
         </p>
       </div>
@@ -571,9 +575,10 @@ export function PartnerListingForm({ listingId }) {
             <input id="listing-photos" type="file" accept=".jpg,.jpeg,.png" multiple onChange={handlePhotoChange} aria-invalid={Boolean(errors.photos)} aria-describedby={errors.photos ? "listing-photos-error" : undefined} className="mt-2 block w-full text-sm text-ink-secondary file:mr-4 file:rounded-lg file:border-0 file:bg-primary file:px-4 file:py-2.5 file:text-sm file:font-semibold file:text-white"/>
             <p className="mt-2 text-xs text-ink-secondary">JPG, JPEG, or PNG. Up to 8 photos, 8 MB per photo. At least one photo is required to submit for review.</p>
             {keptPhotos.length > 0 && (<ul className="mt-3 grid gap-1.5">
-                {keptPhotos.map((photo) => (<li key={photo.name} className="flex items-center justify-between gap-2 rounded-lg bg-canvas px-3 py-2 text-sm text-ink-secondary">
-                    <span className="min-w-0 truncate">{photo.name}</span>
-                    <button type="button" onClick={() => setKeptPhotos((current) => current.filter((item) => item.name !== photo.name))} className="shrink-0 rounded px-1 text-xs font-semibold text-alert" aria-label={`Remove ${photo.name}`}>
+                {keptPhotos.map((photo, index) => (<li key={photo.src || index} className="flex items-center justify-between gap-2 rounded-lg bg-canvas px-3 py-2 text-sm text-ink-secondary">
+                    <div className="relative h-20 w-28 shrink-0 overflow-hidden rounded-lg bg-photo"><PropertyImage src={publicImageUrl(photo.src)} alt={photo.name} fill sizes="112px" className="object-cover"/></div>
+                    <span className="min-w-0 flex-1 truncate">{photo.name}</span>
+                    <button type="button" onClick={() => setKeptPhotos((current) => current.filter((_, photoIndex) => photoIndex !== index))} className="shrink-0 rounded px-1 text-xs font-semibold text-alert" aria-label={`Remove ${photo.name}`}>
                       Remove
                     </button>
                   </li>))}
@@ -590,7 +595,7 @@ export function PartnerListingForm({ listingId }) {
 
           <div className="grid gap-2 sm:grid-cols-2">
             <button type="submit" disabled={Boolean(pendingAction)} aria-busy={pendingAction === "draft"} className="inline-flex min-h-11 items-center justify-center rounded-lg border border-line bg-white px-5 text-sm font-semibold text-ink btn-secondary disabled:cursor-not-allowed disabled:opacity-60">
-              {pendingAction === "draft" ? "Saving..." : "Save as Draft"}
+              {pendingAction === "draft" ? "Saving..." : isEditMode ? "Save Changes" : "Save as Draft"}
             </button>
             <button type="button" onClick={submitForReview} disabled={Boolean(pendingAction)} aria-busy={pendingAction === "review"} className="inline-flex min-h-11 items-center justify-center rounded-lg bg-primary px-5 text-sm font-semibold text-white btn-primary disabled:cursor-not-allowed disabled:opacity-60">
               {pendingAction === "review" ? "Submitting..." : "Submit for Review"}

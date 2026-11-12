@@ -136,9 +136,9 @@ export function saveMockListing(listing) {
 export function updateMockListing(updatedListing) {
     writeMockListings(readMockListings().map((listing) => listing.id === updatedListing.id ? updatedListing : listing));
 }
-// Only DRAFT and REJECTED listings may be edited through the creation flow.
+// Saving published content takes it offline until Admin review.
 export function isMockListingEditable(listing) {
-    return listing.listingStatus === "DRAFT" || listing.listingStatus === "REJECTED";
+    return ["DRAFT", "REJECTED", "PUBLISHED"].includes(listing.listingStatus);
 }
 export function listingStatusLabel(status) {
     return status.replaceAll("_", " ");

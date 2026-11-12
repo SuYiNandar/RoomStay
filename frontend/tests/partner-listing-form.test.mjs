@@ -22,12 +22,13 @@ function findAll(node, predicate, results = []) {
   for (const child of React.Children.toArray(node.props.children)) findAll(child, predicate, results);
   return results;
 }
-function harness({ save = async () => ({ id: "draft-1" }), submit = async () => ({ id: "draft-1", listingStatus: "PENDING_REVIEW" }) } = {}) {
+function harness({ listing = null, save = async input => ({ id: "draft-1", photos: [...input.keptPhotos, ...input.files.map(file => ({ name: file.name, src: "/uploads/listings/saved.png" }))] }), submit = async () => ({ id: "draft-1", listingStatus: "PENDING_REVIEW" }) } = {}) {
   const state = [];
   let cursor = 0;
+  let effects = [];
   const hooks = {
     ...React,
-    useEffect() {},
+    useEffect(callback) { effects.push(callback); },
     useState(initial) {
       const i = cursor++;
       if (!(i in state)) state[i] = typeof initial === "function" ? initial() : initial;
@@ -46,7 +47,8 @@ function harness({ save = async () => ({ id: "draft-1" }), submit = async () => 
     react: hooks,
     "next/link": { default: "a" },
     "next/navigation": { useRouter: () => ({ push: path => pushed.push(path), replace() {} }) },
-    "@/lib/api": { ApiError },
+    "@/lib/api": { ApiError, publicImageUrl: src => src },
+    "@/components/property-image": { PropertyImage: "property-image" },
     "@/lib/live-actions": {
       liveSaveListing: (...args) => { saveCalls.push(args); return save(...args); },
       liveSubmitListing: (...args) => { submitCalls.push(args); return submit(...args); },
@@ -56,7 +58,7 @@ function harness({ save = async () => ({ id: "draft-1" }), submit = async () => 
     "@/lib/property-location": { formatPropertyLocation: ({ area, province, location }) => [area?.trim(), province?.trim()].filter(Boolean).join(", ") || location },
     "@/lib/mock-listings": {
       createMockListingId: () => "mock-listing",
-      findMockListingById: () => null,
+      findMockListingById: () => listing,
       isMockListingEditable: () => true,
       saveMockListing() {},
       updateMockListing() {},
@@ -79,8 +81,9 @@ function harness({ save = async () => ({ id: "draft-1" }), submit = async () => 
   });
   function render() {
     cursor = 0;
-    return loaded.exports.PartnerListingForm({});
+    return loaded.exports.PartnerListingForm({ listingId: listing?.id });
   }
+  if (listing) { render(); const initialEffects = effects; effects = []; initialEffects.forEach(effect => effect()); }
   return { render, saveCalls, submitCalls, pushed };
 }
 function setInput(tree, placeholder, value) {
@@ -111,7 +114,7 @@ function fillCompleteListing(tree) {
 function actions(tree) {
   return {
     form: find(tree, node => node.type === "form"),
-    draft: find(tree, node => node.type === "button" && ["Save as Draft", "Saving..."].includes(node.props.children)),
+    draft: find(tree, node => node.type === "button" && ["Save as Draft", "Save Changes", "Saving..."].includes(node.props.children)),
     review: find(tree, node => node.type === "button" && ["Submit for Review", "Submitting..."].includes(node.props.children)),
   };
 }
@@ -132,7 +135,7 @@ test("draft save allows a completely empty listing with no photos", async () => 
   assert.equal(saving.draft.props.disabled, true);
   assert.equal(saving.draft.props.children, "Saving...");
   assert.equal(saving.review.props.disabled, true);
-  resolveSave({ id: "draft-1" });
+  resolveSave({ id: "draft-1", photos: [] });
   await saved;
   assert.deepEqual(h.pushed, ["/partner/listings"]);
   assert.equal(h.submitCalls.length, 0);
@@ -174,7 +177,7 @@ test("submit for review saves once, submits the saved draft, then redirects", as
 test("a failed submission is visible and retries the same saved draft", async () => {
   let submits = 0;
   const h = harness({
-    save: async () => ({ id: "draft-42" }),
+    save: async () => ({ id: "draft-42", photos: [{ name: "house.png", src: "/uploads/listings/saved.png" }] }),
     submit: async () => {
       submits += 1;
       if (submits === 1) throw new ApiError("The listing could not be reviewed.");
@@ -203,7 +206,7 @@ test("the form blocks double clicks before React re-renders", async () => {
   const first = submit(event);
   await submit(event);
   assert.equal(h.saveCalls.length, 1);
-  resolveSave({ id: "draft-1" });
+  resolveSave({ id: "draft-1", photos: [] });
   await first;
   assert.equal(h.saveCalls.length, 1);
 });
@@ -219,4 +222,25 @@ test("draft save rejects unsupported or oversized photos without uploading", asy
   await actions(h.render()).form.props.onSubmit(event);
   assert.equal(h.saveCalls.length, 0);
   assert.ok(find(h.render(), node => node.props.children === "Each photo must be 8 MB or smaller."));
+});
+
+test("published listing prefills fields, previews photos, removes only selected duplicate filename, and saves for review", async () => {
+  const listing = { id: "published", partnerUserId: "partner", listingStatus: "PUBLISHED", roomStatus: "RENTED", title: "Existing House", propertyType: "House", monthlyRent: 12000, location: "Ari, Bangkok", fullAddress: "1 Main Road", area: "Ari", province: "Bangkok", description: "Existing description", bedrooms: 0, bathrooms: 1, sizeSqm: 30, facilities: ["Wi-Fi"], photos: [{ name: "same.png", src: "/uploads/listings/missing.png" }, { name: "same.png", src: "/uploads/listings/keep.png" }] };
+  const h = harness({ listing });
+  let tree = h.render();
+  assert.equal(find(tree, node => node.props.id === "listing-title").props.value, listing.title);
+  assert.equal(find(tree, node => node.props.id === "listing-bedrooms").props.value, "0");
+  assert.equal(findAll(tree, node => node.type === "property-image").length, 2);
+  findAll(tree, node => node.props["aria-label"] === "Remove same.png")[0].props.onClick();
+  tree = h.render();
+  assert.equal(findAll(tree, node => node.type === "property-image").length, 1);
+  find(tree, node => node.props.id === "listing-photos").props.onChange({ target: { files: [{ name: "replacement.png", type: "image/png", size: 100 }] } });
+  await actions(h.render()).review.props.onClick();
+  const input = h.saveCalls[0][0];
+  assert.equal(input.id, listing.id);
+  assert.equal(input.keptPhotos.length, 1);
+  assert.equal(input.keptPhotos[0].src, "/uploads/listings/keep.png");
+  assert.equal(input.files[0].name, "replacement.png");
+  assert.equal(input.roomStatus, undefined);
+  assert.equal(h.submitCalls.length, 1);
 });

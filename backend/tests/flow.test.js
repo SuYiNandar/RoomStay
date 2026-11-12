@@ -271,6 +271,73 @@ test("RoomStay API covers accounts, listings, viewings, bookings, deposits, revi
   const visible = await api(server, "GET", `/api/properties/${listing.json.listing.id}`);
   assert.equal(visible.status, 200);
 
+  const editId = listing.json.listing.id;
+  const editUrl = `/api/partner/listings/${editId}`;
+  const reviewUrl = `/api/admin/listings/${editId}/review`;
+  const ownerToken = freshApplicant.json.token;
+  const reviewEditedListing = decision => api(server, "POST", reviewUrl, { token: admin.json.token, body: decision });
+  async function assertHidden() {
+    assert.equal((await api(server, "GET", `/api/properties/${editId}`)).status, 404);
+    assert.ok(!(await api(server, "GET", "/api/properties")).json.properties.some(item => item.id === editId));
+  }
+  await t.test("edit and review endpoints enforce ownership and roles", async () => {
+    for (const [token, expected] of [[undefined, 401], [renter.json.token, 403], [partner.json.token, 404]]) {
+      assert.equal((await api(server, "PATCH", editUrl, { token, body: listingForm() })).status, expected);
+    }
+    for (const token of [ownerToken, renter.json.token]) {
+      assert.equal((await api(server, "POST", reviewUrl, { token, body: { status: "PUBLISHED" } })).status, 403);
+    }
+    assert.equal((await api(server, "POST", reviewUrl, { body: { status: "PUBLISHED" } })).status, 401);
+  });
+  for (const roomStatus of ["AVAILABLE", "RESERVED", "RENTED", "UNAVAILABLE"]) {
+    await t.test(`published edit replaces missing photo, requires review, and preserves ${roomStatus}`, async () => {
+      await prisma.property.update({ where: { id: editId }, data: { roomStatus } });
+      const old = await prisma.propertyPhoto.findFirst({ where: { propertyId: editId } });
+      rmSync(path.join(process.env.UPLOAD_DIR, old.src.replace("/uploads/", "")), { force: true });
+      const body = listingForm(); body.set("title", `Updated ${roomStatus}`);
+      // Attempts to bypass review or reset availability are ignored by validation.
+      body.set("listingStatus", "PUBLISHED"); body.set("roomStatus", "AVAILABLE");
+      const edited = await api(server, "PATCH", editUrl, { token: ownerToken, body });
+      assert.equal(edited.status, 200);
+      assert.equal(edited.json.listing.listingStatus, "DRAFT");
+      assert.equal(edited.json.listing.roomStatus, roomStatus);
+      assert.notEqual(edited.json.listing.photos[0].src, old.src);
+      assert.equal(await prisma.propertyPhoto.count({ where: { id: old.id } }), 0);
+      await assertHidden();
+      const submits = await Promise.all([1, 2].map(() => api(server, "POST", `${editUrl}/submit`, { token: ownerToken })));
+      assert.deepEqual(submits.map(result => result.status).sort(), [200, 409]);
+      await assertHidden();
+      assert.equal((await api(server, "PATCH", editUrl, { token: ownerToken, body: listingForm() })).status, 409);
+      const pending = (await api(server, "GET", "/api/admin/listings", { token: admin.json.token })).json.listings.find(item => item.id === editId);
+      assert.equal(pending.title, `Updated ${roomStatus}`);
+      assert.equal(pending.listingStatus, "PENDING_REVIEW");
+      assert.equal((await reviewEditedListing({ status: "PUBLISHED" })).status, 200);
+      const publicListing = (await api(server, "GET", `/api/properties/${editId}`)).json.property;
+      assert.equal(publicListing.title, `Updated ${roomStatus}`);
+      assert.equal(publicListing.roomStatus, roomStatus);
+      assert.equal(publicListing.image, edited.json.listing.photos[0].src);
+      assert.equal((await fetch(`http://127.0.0.1:${server.address().port}${publicListing.image}`)).status, 200);
+    });
+  }
+  await t.test("rejection reason is visible to owner and rejected content can be edited and resubmitted", async () => {
+    await api(server, "PATCH", editUrl, { token: ownerToken, body: listingForm() });
+    await api(server, "POST", `${editUrl}/submit`, { token: ownerToken });
+    const rejected = await reviewEditedListing({ status: "REJECTED", rejectionReason: "Please clarify the address." });
+    assert.equal(rejected.json.listing.rejectionReason, "Please clarify the address.");
+    await assertHidden();
+    const owned = (await api(server, "GET", "/api/partner/listings", { token: ownerToken })).json.listings.find(item => item.id === editId);
+    assert.equal(owned.rejectionReason, "Please clarify the address.");
+    assert.equal((await api(server, "PATCH", editUrl, { token: ownerToken, body: listingForm() })).status, 200);
+    assert.equal((await api(server, "POST", `${editUrl}/submit`, { token: ownerToken })).status, 200);
+    assert.equal((await reviewEditedListing({ status: "PUBLISHED" })).status, 200);
+  });
+  await t.test("suspended listings cannot be edited, submitted, or exposed publicly", async () => {
+    await api(server, "POST", `/api/admin/listings/${editId}/suspend`, { token: admin.json.token });
+    assert.equal((await api(server, "PATCH", editUrl, { token: ownerToken, body: listingForm() })).status, 409);
+    assert.equal((await api(server, "POST", `${editUrl}/submit`, { token: ownerToken })).status, 409);
+    await assertHidden();
+  });
+
   await api(server, "POST", `/api/admin/partners/${applicant.json.user.id}/suspend`, {
     token: admin.json.token,
     body: { reason: "Ownership document needs another look." },

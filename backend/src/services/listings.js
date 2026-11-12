@@ -105,39 +105,46 @@ export async function createListing(db, user, input) {
 
 export async function updateListing(db, user, id, input) {
   await requireApprovedPartner(db, user.id);
-  const existing = await db.property.findUnique({ where: { id }, include });
-  if (!existing || existing.partnerUserId !== user.id) throw new HttpError(404, "Listing not found.");
-  if (existing.listingStatus !== "DRAFT" && existing.listingStatus !== "REJECTED") {
-    throw new HttpError(409, "Only a draft or rejected listing can be edited.");
-  }
-  const data = parse(draftListingSchema, normalizeBody(input));
-  return db.property.update({
-    where: { id },
-    data: {
-      ...listingData(data),
-      listingStatus: "DRAFT",
-      rejectionReason: null,
-      photos: { deleteMany: {}, create: photoRows(id, data.photos).map(({ propertyId, ...photo }) => photo) },
-    },
-    include,
+  return propertyTransaction(db, id, async tx => {
+    const existing = await tx.property.findUnique({ where: { id }, include });
+    if (!existing || existing.partnerUserId !== user.id) throw new HttpError(404, "Listing not found.");
+    if (!["DRAFT", "REJECTED", "PUBLISHED"].includes(existing.listingStatus)) {
+      throw new HttpError(409, "Only a draft, rejected, or published listing can be edited.");
+    }
+    const data = parse(draftListingSchema, normalizeBody(input));
+    return tx.property.update({
+      where: { id },
+      data: {
+        ...listingData(data),
+        listingStatus: "DRAFT",
+        rejectionReason: null,
+        reviewedAt: null,
+        submittedAt: null,
+        photos: { deleteMany: {}, create: photoRows(id, data.photos).map(({ propertyId, ...photo }) => photo) },
+      },
+      include,
+    });
   });
 }
 
 export async function submitListing(db, user, id) {
   await requireApprovedPartner(db, user.id);
-  const existing = await db.property.findUnique({ where: { id }, include });
-  if (!existing || existing.partnerUserId !== user.id) throw new HttpError(404, "Listing not found.");
-  if (existing.listingStatus !== "DRAFT" && existing.listingStatus !== "REJECTED") {
-    throw new HttpError(409, "Only a draft or rejected listing can be submitted.");
-  }
-  parse(submissionSchema, existing);
-  if (existing.photos.length < 1) throw new HttpError(400, "At least one photo is required before submission.");
-  return db.property.update({
-    where: { id },
-    data: { listingStatus: "PENDING_REVIEW", submittedAt: new Date(), rejectionReason: null },
-    include,
+  return propertyTransaction(db, id, async tx => {
+    const existing = await tx.property.findUnique({ where: { id }, include });
+    if (!existing || existing.partnerUserId !== user.id) throw new HttpError(404, "Listing not found.");
+    if (existing.listingStatus !== "DRAFT" && existing.listingStatus !== "REJECTED") {
+      throw new HttpError(409, "Only a draft or rejected listing can be submitted.");
+    }
+    parse(submissionSchema, existing);
+    if (existing.photos.length < 1) throw new HttpError(400, "At least one photo is required before submission.");
+    return tx.property.update({
+      where: { id },
+      data: { listingStatus: "PENDING_REVIEW", submittedAt: new Date(), reviewedAt: null, rejectionReason: null },
+      include,
+    });
   });
 }
+
 
 export async function setListingAvailability(db, user, id, roomStatus) {
   await requireApprovedPartner(db, user.id);
