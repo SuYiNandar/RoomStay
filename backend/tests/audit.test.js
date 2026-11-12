@@ -67,6 +67,31 @@ test("extended local API audit", async (t) => {
 
     return result.booking;
   }
+  await t.test("room availability gates new requests but preserves messaging and public visibility", async () => {
+    const source = await prisma.property.findUnique({ where: { id: "garden-house" } });
+    const propertyId = "availability-regression";
+    await prisma.property.create({ data: { ...source, id: propertyId } });
+    try {
+      for (const status of ["RESERVED", "RENTED", "AVAILABLE"]) {
+        await prisma.property.update({ where: { id: propertyId }, data: { roomStatus: status } });
+        const expected = status === "AVAILABLE" ? 201 : 409;
+        const beforeViewings = await prisma.viewing.count({ where: { propertyId } });
+        const beforeBookings = await prisma.booking.count({ where: { propertyId } });
+        await api("POST", "/api/viewings", r, { propertyId, viewingDate: futureDate, viewingTime: "10:00" }, expected);
+        await api("POST", "/api/bookings", r, { propertyId, requestedMoveInDate: futureDate }, expected);
+        assert.equal(await prisma.viewing.count({ where: { propertyId } }), beforeViewings + (expected === 201 ? 1 : 0));
+        assert.equal(await prisma.booking.count({ where: { propertyId } }), beforeBookings + (expected === 201 ? 1 : 0));
+        await api("POST", "/api/conversations", r, { propertyId }, 201);
+        assert.equal((await api("GET", `/api/properties/${propertyId}`)).property.roomStatus, status);
+      }
+    } finally {
+      await prisma.notification.deleteMany({ where: { relatedPropertyId: propertyId } });
+      await prisma.viewing.deleteMany({ where: { propertyId } });
+      await prisma.booking.deleteMany({ where: { propertyId } });
+      await prisma.conversation.deleteMany({ where: { propertyId } });
+      await prisma.property.delete({ where: { id: propertyId } });
+    }
+  });
   await t.test("seed repeats without duplicate accounts, photos or overwriting property edits", async () => {
     await prisma.property.update({ where: { id: "garden-house" }, data: { description: "Audit edit" } });
     await seed(prisma); await seed(prisma);

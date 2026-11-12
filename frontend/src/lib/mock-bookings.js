@@ -280,9 +280,9 @@ export function roomStatusMessage(status) {
     if (status === "AVAILABLE")
         return "This property is available for viewing and booking requests.";
     if (status === "RESERVED")
-        return "This property is currently reserved. New booking requests are unavailable.";
+        return "Viewing and booking are unavailable while this property is reserved.";
     if (status === "RENTED")
-        return "This property is currently rented. New booking requests are unavailable.";
+        return "Viewing and booking are unavailable while this property is rented.";
     return "This property is currently unavailable. Viewing and booking requests are disabled.";
 }
 export function setMockRoomStatus(propertyId, status) {

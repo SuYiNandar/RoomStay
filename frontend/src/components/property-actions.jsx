@@ -21,7 +21,8 @@ export function PropertyActions({ propertyId, propertyTitle, monthlyRent, availa
     const ownsRoom = Boolean(user && partnerUserId && user.id === partnerUserId);
     const canSetAvailability = roomStatus === "AVAILABLE" || roomStatus === "UNAVAILABLE";
     const propertyPath = `/properties/${propertyId}`;
-    const viewingDisabled = roomStatus === "UNAVAILABLE";
+    const viewingDisabled = !statusReady || roomStatus !== "AVAILABLE";
+    const availabilityHelp = roomStatus === "RESERVED" || roomStatus === "RENTED";
     const bookingDisabled = !statusReady || roomStatus !== "AVAILABLE";
     useEffect(() => {
         function loadStatus() {
@@ -44,9 +45,7 @@ export function PropertyActions({ propertyId, propertyTitle, monthlyRent, availa
     function chooseAction(action) {
         if (action === "message" && openingMessageRef.current)
             return;
-        if (action === "request-viewing" && viewingDisabled)
-            return;
-        if (action === "request-booking") {
+        if (action === "request-viewing" || action === "request-booking") {
             const currentStatus = readMockRoomStatus(propertyId, defaultRoomStatus(availableNow));
             setRoomStatus(currentStatus);
             if (bookingDisabled || currentStatus !== "AVAILABLE")
@@ -140,13 +139,13 @@ export function PropertyActions({ propertyId, propertyTitle, monthlyRent, availa
             {openingMessage ? "Opening chat..." : "Message"}
           </button>
           {messageError && <p role="alert" className="text-sm text-alert">{messageError}</p>}
-          <button type="button" onClick={() => chooseAction("request-viewing")} disabled={viewingDisabled} className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#e6e1f2] bg-white px-4 text-sm font-semibold text-ink btn-secondary disabled:cursor-not-allowed disabled:bg-canvas disabled:text-ink-secondary">
+          <button type="button" onClick={() => chooseAction("request-viewing")} disabled={viewingDisabled} aria-describedby={availabilityHelp ? "property-availability-help" : undefined} className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#e6e1f2] bg-white px-4 text-sm font-semibold text-ink btn-secondary disabled:cursor-not-allowed disabled:bg-canvas disabled:text-ink-secondary">
             Request Viewing
           </button>
-          <button type="button" onClick={() => chooseAction("request-booking")} disabled={bookingDisabled} aria-describedby={roomStatus === "RESERVED" ? "reserved-booking-help" : undefined} className={`inline-flex min-h-11 items-center justify-center rounded-lg px-4 text-sm font-semibold ${bookingDisabled ? "cursor-not-allowed border border-gray-200 bg-gray-100 text-gray-500 shadow-none" : "bg-primary text-white btn-primary"}`}>
+          <button type="button" onClick={() => chooseAction("request-booking")} disabled={bookingDisabled} aria-describedby={availabilityHelp ? "property-availability-help" : undefined} className={`inline-flex min-h-11 items-center justify-center rounded-lg px-4 text-sm font-semibold ${bookingDisabled ? "cursor-not-allowed border border-gray-200 bg-gray-100 text-gray-500 shadow-none" : "bg-primary text-white btn-primary"}`}>
             Request Booking
           </button>
-          {roomStatus === "RESERVED" && (<p id="reserved-booking-help" className="text-center text-xs leading-5 text-ink-secondary">Booking unavailable while reserved.</p>)}
+          {availabilityHelp && (<p id="property-availability-help" className="text-center text-xs leading-5 text-ink-secondary">{roomStatusMessage(roomStatus)}</p>)}
         </div>)}
     </aside>);
 }

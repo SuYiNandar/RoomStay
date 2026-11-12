@@ -80,7 +80,7 @@ export function displayLocation({ location, area, province }) {
 }
 
 export function canRequestViewing(roomStatus) {
-  return roomStatus !== "UNAVAILABLE";
+  return roomStatus === "AVAILABLE";
 }
 
 export function canRequestBooking(roomStatus) {

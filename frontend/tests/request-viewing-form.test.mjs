@@ -7,7 +7,7 @@ import ts from "typescript";
 import React from "react";
 const require = createRequire(import.meta.url);
 class ApiError extends Error {}
-function harness(send) {
+function harness(send, status = "AVAILABLE") {
   const state = [];
   let cursor = 0;
   const hooks = {
@@ -32,7 +32,8 @@ function harness(send) {
     "@/lib/viewing-time": { todayDateString: () => "2026-11-01", viewingTimeOptions: [{ value: "10:00", label: "10:00 AM" }], formatViewingTime: value => value },
     "@/components/date-picker": { DatePicker: "date-picker" },
     "@/lib/format-date": { formatBookingDate: value => value },
-    "@/lib/mock-bookings": { defaultRoomStatus: () => "AVAILABLE" },
+    "@/lib/mock-bookings": { defaultRoomStatus: () => "AVAILABLE", readMockRoomStatus: () => status, roomStatusMessage: value => `Unavailable: ${value}` },
+    "@/lib/mock-listings": {},
     "@/lib/api": { ApiError },
     "@/lib/live-actions": { liveRequestViewing: send },
     "@/lib/live-store": { liveEnabled: () => true },
@@ -86,3 +87,14 @@ test("viewing form displays the exact backend conflict and allows retry", async 
   await find(tree, node => node.type === "form").props.onSubmit(event);
   assert.equal(calls, 2);
 });
+
+for (const status of ["RESERVED", "RENTED"]) {
+  test(`direct viewing form blocks ${status} even with stale available state`, async () => {
+    let calls = 0;
+    const h = harness(async () => { calls++; }, status);
+    await find(h.render(), node => node.type === "form").props.onSubmit(event);
+    assert.equal(calls, 0);
+    assert.equal(find(h.render(), node => node.type === "form"), undefined);
+    assert.ok(find(h.render(), node => node.props.children === "Viewing requests are unavailable"));
+  });
+}

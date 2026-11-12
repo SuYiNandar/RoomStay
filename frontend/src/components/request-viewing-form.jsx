@@ -7,7 +7,8 @@ import { useMockAuth } from "@/lib/mock-auth";
 import { formatViewingTime, viewingTimeOptions, todayDateString } from "@/lib/viewing-time";
 import { DatePicker } from "@/components/date-picker";
 import { formatBookingDate } from "@/lib/format-date";
-import { defaultRoomStatus, readMockRoomStatus, roomStatusMessage } from "@/lib/mock-bookings";
+import { mockRoomStatusesChangedEvent, defaultRoomStatus, readMockRoomStatus, roomStatusMessage } from "@/lib/mock-bookings";
+import { mockListingsChangedEvent } from "@/lib/mock-listings";
 import { ApiError } from "@/lib/api";
 import { liveRequestViewing } from "@/lib/live-actions";
 import { liveEnabled } from "@/lib/live-store";
@@ -42,15 +43,24 @@ export function RequestViewingForm({ property }) {
     useEffect(() => {
         if (!isReady || !user)
             return undefined;
-        const timeout = window.setTimeout(() => {
+        function loadStatus() {
             setRoomStatus(readMockRoomStatus(property.id, defaultRoomStatus(property.availableNow)));
-        }, 0);
-        return () => window.clearTimeout(timeout);
+        }
+        const timeout = window.setTimeout(loadStatus, 0);
+        const events = [mockRoomStatusesChangedEvent, mockListingsChangedEvent, "storage", "focus"];
+        events.forEach(event => window.addEventListener(event, loadStatus));
+        return () => {
+            window.clearTimeout(timeout);
+            events.forEach(event => window.removeEventListener(event, loadStatus));
+        };
     }, [isReady, property.availableNow, property.id, user]);
     async function submit(event) {
         event.preventDefault();
-        if (submissionPending.current || request || !user || roomStatus === "UNAVAILABLE")
+        if (submissionPending.current || request || !user || roomStatus !== "AVAILABLE")
             return;
+        const currentStatus = readMockRoomStatus(property.id, defaultRoomStatus(property.availableNow));
+        setRoomStatus(currentStatus);
+        if (currentStatus !== "AVAILABLE") return;
         const nextErrors = {};
         if (!date)
             nextErrors.date = "Preferred viewing date is required.";
@@ -118,7 +128,7 @@ export function RequestViewingForm({ property }) {
         <Link href="/partner/viewings" className="mt-6 inline-flex min-h-11 items-center justify-center rounded-lg bg-primary px-5 text-sm font-semibold text-white btn-primary">Review viewing requests</Link>
       </section>);
     }
-    if (roomStatus === "UNAVAILABLE") {
+    if (roomStatus !== "AVAILABLE") {
         return (<section className="rounded-xl border border-line bg-white p-5 md:p-7">
         <div className="rounded-xl bg-primary-tint p-5">
           <p className="text-sm font-semibold text-primary">Property unavailable</p>

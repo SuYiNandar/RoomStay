@@ -80,25 +80,23 @@ beforeEach(() => {
   });
 });
 
-test("reserved booking is disabled with helper text while Message and Request Viewing remain enabled", () => {
-  bookings.setMockRoomStatus(props.propertyId, "RESERVED");
-  let tree = renderActions();
-  assert.equal(button(tree, "Request Booking").props.disabled, true); // Await storage status.
-  effects.forEach((effect) => effect());
-  tree = renderActions();
-  const booking = button(tree, "Request Booking");
-  assert.equal(booking.props.disabled, true);
-  assert.ok(booking.props.className.includes("bg-gray-100"));
-  assert.equal(booking.props["aria-describedby"], "reserved-booking-help");
-  assert.ok(renderToStaticMarkup(tree).includes("Booking unavailable while reserved."));
-  booking.props.onClick();
-  assert.equal(navigations.length, 0);
-  assert.equal(pending.length, 0);
-  assert.ok(!button(tree, "Message").props.disabled);
-  assert.equal(button(tree, "Request Viewing").props.disabled, false);
-  button(tree, "Request Viewing").props.onClick();
-  assert.equal(navigations[0], "/properties/cozy-condo/request-viewing");
-});
+for (const status of ["AVAILABLE", "RESERVED", "RENTED"]) {
+  test(`${status}: viewing and booking require availability; Message stays enabled`, () => {
+    bookings.setMockRoomStatus(props.propertyId, status);
+    renderActions(); effects.forEach(effect => effect());
+    const tree = renderActions();
+    for (const label of ["Request Viewing", "Request Booking"]) {
+      const action = button(tree, label);
+      assert.equal(action.props.disabled, status !== "AVAILABLE");
+      action.props.onClick();
+    }
+    assert.equal(navigations.length, status === "AVAILABLE" ? 2 : 0);
+    assert.equal(button(tree, "Message").props.disabled, false);
+    if (status !== "AVAILABLE") {
+      assert.ok(renderToStaticMarkup(tree).includes(`Viewing and booking are unavailable while this property is ${status.toLowerCase()}.`));
+    }
+  });
+}
 
 test("status events update booking availability and fresh storage prevents a stale click", () => {
   renderActions(); effects.forEach((effect) => effect());
@@ -106,6 +104,7 @@ test("status events update booking availability and fresh storage prevents a sta
   assert.equal(button(tree, "Request Booking").props.disabled, false);
   // Another tab may write before the storage event is received.
   storage.set(bookings.mockRoomStatusesKey, JSON.stringify({ [props.propertyId]: "RESERVED" }));
+  button(tree, "Request Viewing").props.onClick();
   button(tree, "Request Booking").props.onClick();
   assert.equal(navigations.length, 0);
   assert.equal(pending.length, 0);
