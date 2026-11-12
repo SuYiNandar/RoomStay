@@ -1,6 +1,6 @@
 "use client";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { api, ApiError, authToken, storeAuthToken, tokenStorageKey } from "@/lib/api";
+import { api, ApiError, authToken, storeAuthToken } from "@/lib/api";
 import { refreshLiveSession } from "@/lib/live";
 import { setLiveEnabled } from "@/lib/live-store";
 import { findMockPartnerCapability, mockPartnerApplicationsChangedEvent } from "@/lib/mock-partner-application";
@@ -33,12 +33,20 @@ export function MockAuthProvider({ children }) {
     const [partnerApplication, setPartnerApplication] = useState(null);
     const [isReady, setIsReady] = useState(false);
     const applySession = useCallback(async (sessionUser) => {
-        const committed = await refreshLiveSession(sessionUser.id, sessionUser.role, sessionUser.isPartner === true);
-        if (!committed) return;
-        const capability = findMockPartnerCapability(sessionUser.id);
-        const nextUser = { ...sessionUser, isPartner: capability?.status === "APPROVED" };
-        setUser(nextUser);
-        setPartnerApplication(capability);
+        const token = authToken();
+        if (!token || token !== authToken()) return false;
+        setUser(sessionUser);
+        setPartnerApplication(findMockPartnerCapability(sessionUser.id));
+        try {
+            const committed = await refreshLiveSession(sessionUser.id, sessionUser.role, sessionUser.isPartner === true);
+            if (!committed || token !== authToken()) return false;
+            const capability = findMockPartnerCapability(sessionUser.id);
+            setUser(current => current?.id === sessionUser.id ? { ...sessionUser, isPartner: capability?.status === "APPROVED" } : current);
+            setPartnerApplication(capability);
+            return true;
+        } catch {
+            return true;
+        }
     }, []);
     useEffect(() => {
         let active = true;
@@ -94,11 +102,10 @@ export function MockAuthProvider({ children }) {
                 const me = await api("/api/me");
                 if (!active || token !== authToken()) return;
                 const next = toSessionUser(me.user);
-                const committed = await refreshLiveSession(next.id, next.role, next.isPartner, { reset: false });
-                if (!active || !committed || token !== authToken()) return;
                 setUser(current => JSON.stringify(current) === JSON.stringify(next) ? current : next);
                 const capability = findMockPartnerCapability(next.id);
                 setPartnerApplication(current => JSON.stringify(current) === JSON.stringify(capability) ? current : capability);
+                await refreshLiveSession(next.id, next.role, next.isPartner, { reset: false });
             } catch (error) {
                 if (active && token === authToken() && error instanceof ApiError && error.status === 401) {
                     storeAuthToken(null); setLiveEnabled(false); setUser(null); setPartnerApplication(null);
@@ -110,11 +117,6 @@ export function MockAuthProvider({ children }) {
         document.addEventListener("visibilitychange", refresh);
         return () => { active = false; window.clearInterval(interval); window.removeEventListener("focus", refresh); document.removeEventListener("visibilitychange", refresh); };
     }, [isReady, user]);
-    useEffect(() => {
-        function changedSession(event) { if (event.key === tokenStorageKey) window.location.reload(); }
-        window.addEventListener("storage", changedSession);
-        return () => window.removeEventListener("storage", changedSession);
-    }, []);
     const login = useCallback(async (credentials) => {
         const result = await api("/api/auth/login", {
             method: "POST",

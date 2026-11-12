@@ -7,7 +7,7 @@ import { usePublicProperties } from "@/lib/published-listings";
 import { facilities, propertyTypes } from "@/types/property";
 const bedroomOptions = [
     { value: "", label: "Any" },
-    { value: "0", label: "Studio / 0 Bedroom" },
+    { value: "0", label: "Studio" },
     { value: "1", label: "1 Bedroom" },
     { value: "2", label: "2 Bedrooms" },
     { value: "3+", label: "3+ Bedrooms" },

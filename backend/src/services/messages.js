@@ -12,11 +12,10 @@ export async function startConversation(db, user, { propertyId, text }) {
   const property = await assertVisibleProperty(db, propertyId);
   if (property.partnerUserId === user.id) throw new HttpError(409, "You cannot message your own listing.");
   const message = text?.trim() ?? "";
-  const existing = await db.conversation.findUnique({
+  const conversation = await db.conversation.upsert({
     where: { propertyId_renterUserId: { propertyId, renterUserId: user.id } },
-  });
-  const conversation = existing ?? await db.conversation.create({
-    data: { propertyId, renterUserId: user.id, partnerUserId: property.partnerUserId },
+    create: { propertyId, renterUserId: user.id, partnerUserId: property.partnerUserId },
+    update: {},
   });
   if (!message) {
     return db.conversation.findUnique({ where: { id: conversation.id }, include });

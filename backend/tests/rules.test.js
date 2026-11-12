@@ -171,7 +171,9 @@ test("rental start and completion move the room from reserved to rented to avail
 });
 
 test("a review is allowed once, only after completion", () => {
-  assert.throws(() => createReviewState({ booking: { status: "CONFIRMED" }, rating: 5, comment: "Great" }), /completed/);
+  for (const status of ["PENDING", "DEPOSIT_PENDING", "VERIFICATION_PENDING", "CONFIRMED", "ACTIVE", "CANCELLED", "DECLINED", "EXPIRED"]) {
+    assert.throws(() => createReviewState({ booking: { status }, rating: 5, comment: "Great" }), /completed/);
+  }
   const review = createReviewState({ booking: { status: "COMPLETED" }, rating: 5, comment: "Great stay" });
   assert.equal(review.rating, 5);
   assert.throws(() => createReviewState({ booking: { status: "COMPLETED" }, existingReview: { id: "r1" }, rating: 4, comment: "Again" }), /already/);

@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { mockListingsChangedEvent } from "@/lib/mock-listings";
 import { useRouter } from "next/navigation";
 import { useMockAuth } from "@/lib/mock-auth";
@@ -15,6 +15,9 @@ export function PropertyActions({ propertyId, propertyTitle, monthlyRent, availa
     const [roomStatus, setRoomStatus] = useState(() => defaultRoomStatus(availableNow));
     const [statusReady, setStatusReady] = useState(false);
     const [ownerError, setOwnerError] = useState("");
+    const [openingMessage, setOpeningMessage] = useState(false);
+    const [messageError, setMessageError] = useState("");
+    const openingMessageRef = useRef(false);
     const ownsRoom = Boolean(user && partnerUserId && user.id === partnerUserId);
     const canSetAvailability = roomStatus === "AVAILABLE" || roomStatus === "UNAVAILABLE";
     const propertyPath = `/properties/${propertyId}`;
@@ -39,6 +42,8 @@ export function PropertyActions({ propertyId, propertyTitle, monthlyRent, availa
         };
     }, [availableNow, propertyId]);
     function chooseAction(action) {
+        if (action === "message" && openingMessageRef.current)
+            return;
         if (action === "request-viewing" && viewingDisabled)
             return;
         if (action === "request-booking") {
@@ -64,14 +69,27 @@ export function PropertyActions({ propertyId, propertyTitle, monthlyRent, availa
             return;
         }
         if (action === "message") {
+            openingMessageRef.current = true;
+            setOpeningMessage(true);
+            setMessageError("");
             if (liveEnabled()) {
-                void liveOpenConversation(propertyId).then((conversation) => {
+                void liveOpenConversation(propertyId, user.id).then((conversation) => {
                     router.push(`/messages/${encodeURIComponent(conversation.id)}`);
-                }).catch(() => undefined);
+                }).catch((error) => {
+                    openingMessageRef.current = false;
+                    setOpeningMessage(false);
+                    setMessageError(error instanceof ApiError ? error.message : "Could not open chat. Please try again.");
+                });
                 return;
             }
-            const conversation = getOrCreateMockConversation(user.id, propertyId, user.fullName);
-            router.push(`/messages/${encodeURIComponent(conversation.id)}`);
+            try {
+                const conversation = getOrCreateMockConversation(user.id, propertyId, user.fullName);
+                router.push(`/messages/${encodeURIComponent(conversation.id)}`);
+            } catch (error) {
+                openingMessageRef.current = false;
+                setOpeningMessage(false);
+                setMessageError(error instanceof ApiError ? error.message : "Could not open chat. Please try again.");
+            }
             return;
         }
         if (action === "request-viewing" || action === "request-booking") {
@@ -118,9 +136,10 @@ export function PropertyActions({ propertyId, propertyTitle, monthlyRent, availa
           <Link href="/partner/listings" className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#e6e1f2] bg-white px-4 text-sm font-semibold text-ink btn-secondary">My rooms</Link>
           {ownerError && <p className="text-sm text-alert">{ownerError}</p>}
         </div>) : (<div className="mt-4 grid gap-2 max-[1199px]:sticky max-[1199px]:bottom-[calc(78px+env(safe-area-inset-bottom))] max-[1199px]:z-40 max-[1199px]:scroll-mb-28 max-[1199px]:bg-white max-[1199px]:py-2">
-          <button type="button" onClick={() => chooseAction("message")} className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#e6e1f2] bg-white px-4 text-sm font-semibold text-ink btn-secondary">
-            Message
+          <button type="button" onClick={() => chooseAction("message")} disabled={openingMessage} aria-busy={openingMessage || undefined} className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#e6e1f2] bg-white px-4 text-sm font-semibold text-ink btn-secondary disabled:cursor-wait disabled:opacity-70">
+            {openingMessage ? "Opening chat..." : "Message"}
           </button>
+          {messageError && <p role="alert" className="text-sm text-alert">{messageError}</p>}
           <button type="button" onClick={() => chooseAction("request-viewing")} disabled={viewingDisabled} className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#e6e1f2] bg-white px-4 text-sm font-semibold text-ink btn-secondary disabled:cursor-not-allowed disabled:bg-canvas disabled:text-ink-secondary">
             Request Viewing
           </button>

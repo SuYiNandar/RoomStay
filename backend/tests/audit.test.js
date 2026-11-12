@@ -169,6 +169,9 @@ test("extended local API audit", async (t) => {
     const decline = await api("POST", "/api/viewings", r, { propertyId: "cozy-condo", viewingDate: futureDate, viewingTime: "12:00" }, 201);
     await api("POST", `/api/partner/viewings/${decline.viewing.id}/decision`, p, { status: "DECLINED", declineReason: "Unavailable at that time" });
     const convo = await api("POST", "/api/conversations", r, { propertyId: "cozy-condo", text: "Hello" }, 201);
+    const reopened = await api("POST", "/api/conversations", r, { propertyId: "cozy-condo" }, 201);
+    assert.equal(reopened.conversation.id, convo.conversation.id);
+    assert.equal((await api("GET", "/api/conversations", r)).conversations.filter(item => item.propertyId === "cozy-condo").length, 1);
     await api("GET", `/api/conversations/${convo.conversation.id}`, o, null, 404);
     await api("POST", `/api/conversations/${convo.conversation.id}/messages`, p, { text: "Welcome" }, 201);
     await api("POST", `/api/conversations/${convo.conversation.id}/read`, r);

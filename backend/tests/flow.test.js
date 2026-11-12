@@ -159,6 +159,16 @@ test("RoomStay API covers accounts, listings, viewings, bookings, deposits, revi
   const completed = await api(server, "POST", `/api/partner/bookings/${firstBooking.json.booking.id}/complete`, { token: partner.json.token });
   assert.equal(completed.json.booking.status, "COMPLETED");
   assert.equal(completed.json.booking.roomStatus, "AVAILABLE");
+  const preReviewReport = await api(server, "POST", "/api/reports", {
+    token: renter.json.token,
+    body: { targetType: "PROPERTY", targetId: "cozy-condo", reason: "Deposit question", description: "Submitted before leaving a review." },
+  });
+  assert.equal(preReviewReport.status, 201);
+  assert.equal(preReviewReport.json.report.status, "OPEN");
+  assert.equal(preReviewReport.json.report.targetLabel, "Cozy Condo Near BTS");
+  const pendingReports = await api(server, "GET", "/api/admin/reports", { token: admin.json.token });
+  assert.ok(pendingReports.json.reports.some((entry) => entry.id === preReviewReport.json.report.id));
+
   const review = await api(server, "POST", `/api/bookings/${firstBooking.json.booking.id}/review`, {
     token: renter.json.token,
     body: { rating: 5, comment: "Quiet and clean." },
@@ -178,6 +188,10 @@ test("RoomStay API covers accounts, listings, viewings, bookings, deposits, revi
     body: { status: "RESOLVED", resolutionNote: "Asked the partner to replace the photo." },
   });
   assert.equal(resolved.json.report.status, "RESOLVED");
+  const reviewedReports = await api(server, "GET", "/api/admin/reports", { token: admin.json.token });
+  const reviewedEntry = reviewedReports.json.reports.find((entry) => entry.id === report.json.report.id);
+  assert.equal(reviewedEntry.status, "RESOLVED");
+  assert.equal(reviewedEntry.resolutionNote, "Asked the partner to replace the photo.");
   const logs = await api(server, "GET", "/api/admin/audit-logs", { token: admin.json.token });
   assert.ok(logs.json.auditLogs.some((entry) => entry.action === "RENTAL_COMPLETED"));
 

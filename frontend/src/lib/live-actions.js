@@ -114,11 +114,10 @@ export async function liveToggleFavorite(userId, propertyId) {
     changed("roomstay:favorites-changed");
     return data.saved;
 }
-export async function liveOpenConversation(propertyId) {
-    const existing = await api("/api/conversations");
-    const found = existing.conversations.find((conversation) => conversation.propertyId === propertyId);
-    if (found)
-        return found;
+export async function liveOpenConversation(propertyId, renterUserId) {
+    const cached = readLive("conversations").find((conversation) => conversation.propertyId === propertyId && (!renterUserId || conversation.renterUserId === renterUserId));
+    if (cached)
+        return cached;
     const created = await api("/api/conversations", {
         method: "POST",
         body: JSON.stringify({ propertyId }),
@@ -282,5 +281,7 @@ export function liveRecordRefund(id, input) {
 }
 export async function liveSubmitReport(input) {
     const data = await api("/api/reports", { method: "POST", body: JSON.stringify(input) });
+    upsertLive("reports", data.report);
+    changed("roomstay:reports-changed");
     return data.report;
 }

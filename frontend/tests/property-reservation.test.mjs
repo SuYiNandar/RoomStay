@@ -26,6 +26,11 @@ const reactHooks = {
     if (!(index in state)) state[index] = typeof initial === "function" ? initial() : initial;
     return [state[index], (value) => { state[index] = typeof value === "function" ? value(state[index]) : value; }];
   },
+  useRef(initial) {
+    const index = cursor++;
+    if (!(index in state)) state[index] = { current: initial };
+    return state[index];
+  },
   useEffect(callback) { effects.push(callback); },
 };
 const cache = new Map();

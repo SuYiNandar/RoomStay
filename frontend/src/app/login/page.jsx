@@ -8,8 +8,8 @@ export default async function LoginPage({ searchParams, }) {
     const params = await searchParams;
     const returnTo = typeof params.returnTo === "string" ? params.returnTo : undefined;
     const registerHref = returnTo ? `/register?returnTo=${encodeURIComponent(returnTo)}` : "/register";
-    return (<main className="min-h-dvh bg-primary-tint/60">
-      <div className="mx-auto grid min-h-dvh w-full max-w-[1440px] items-stretch gap-0 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]">
+    return (<main className="min-h-screen w-full bg-primary-tint/60 supports-[height:100dvh]:min-h-dvh">
+      <div className="grid min-h-screen w-full items-stretch gap-0 supports-[height:100dvh]:min-h-dvh lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]">
         <section aria-label="Welcome to RoomStay" className="relative hidden min-w-0 overflow-hidden lg:flex lg:flex-col lg:justify-between lg:p-10 xl:p-12">
           <div aria-hidden="true" className="absolute inset-0">
             <Image src="/images/home/luxury-room.jpg" alt="" fill priority sizes="(min-width: 1024px) 50vw, 100vw" className="object-cover"/>

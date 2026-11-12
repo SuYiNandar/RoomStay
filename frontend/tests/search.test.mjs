@@ -100,6 +100,18 @@ for (const type of ["Apartment", "Condo", "House", "Dormitory"]) {
   });
 }
 
+test("studio listings keep zero bedrooms and display as Studio", () => {
+  const { bedroomLabel } = load("lib/property-format");
+  const filters = fromUrl("/search?bedrooms=0");
+  const results = filterProperties(seededProperties, filters);
+  assert.ok(results.length > 0);
+  assert.ok(results.every((property) => property.bedrooms === 0));
+  assert.ok(results.some((property) => property.id === "modern-studio"));
+  assert.equal(bedroomLabel(0), "Studio");
+  assert.equal(bedroomLabel(1), "1 Bedroom");
+  assert.equal(bedroomLabel(2), "2 Bedrooms");
+});
+
 test("category wording is case-insensitive across existing property fields", () => {
   const base = { ...seededProperties[0], title: "Home", location: "Bangkok", buildingName: undefined, fullAddress: undefined, facilities: [] };
   for (const [flag, words] of [

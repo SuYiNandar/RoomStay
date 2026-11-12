@@ -54,7 +54,7 @@ export function PropertyCard({ property, preload = false, showDetailsButton = fa
             <ul aria-label="Room details" className="mt-2.5 flex flex-wrap gap-4 text-sm text-ink-secondary">
               <li className="flex items-center gap-1.5">
                 <Icon name="bed" size={17}/>
-                <span>{property.bedrooms}<span className="sr-only"> bedroom</span></span>
+                <span>{property.bedrooms === 0 ? "Studio" : property.bedrooms}{property.bedrooms !== 0 && <span className="sr-only"> bedroom</span>}</span>
               </li>
               <li className="flex items-center gap-1.5">
                 <Icon name="bath" size={17}/>

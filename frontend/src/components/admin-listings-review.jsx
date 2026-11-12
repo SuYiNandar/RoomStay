@@ -6,6 +6,7 @@ import { liveReviewListing } from "@/lib/live-actions";
 import { liveEnabled } from "@/lib/live-store";
 import { formatBookingDate } from "@/lib/format-date";
 import { roomStatusLabel } from "@/lib/mock-bookings";
+import { bedroomLabel } from "@/lib/property-format";
 import { findMockListingById, mockListingsChangedEvent, reviewMockListing, } from "@/lib/mock-listings";
 const rentFormatter = new Intl.NumberFormat("en-US");
 export function AdminListingReview({ listingId }) {
@@ -147,7 +148,7 @@ export function AdminListingReview({ listingId }) {
         </div>
         <div>
           <dt className="font-medium text-ink">Bedrooms</dt>
-          <dd className="mt-1">{listing.bedrooms}</dd>
+          <dd className="mt-1">{bedroomLabel(listing.bedrooms)}</dd>
         </div>
         <div>
           <dt className="font-medium text-ink">Bathrooms</dt>

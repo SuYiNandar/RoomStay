@@ -39,7 +39,7 @@ export function AdminReportDetails({ reportId }) {
         return (<section className="rounded-xl border border-line bg-white px-5 py-14 text-center">
         <h1 className="text-2xl font-semibold tracking-[-0.025em]">Report not found</h1>
         <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-ink-secondary">
-          This report does not exist in this browser.
+          This report may have been removed or is not available to this account.
         </p>
         <Link href="/admin/reports" className="mt-6 inline-flex min-h-11 items-center justify-center rounded-lg bg-primary px-5 text-sm font-semibold text-white btn-primary">
           Back to Reports

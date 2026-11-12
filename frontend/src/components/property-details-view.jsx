@@ -6,6 +6,7 @@ import { PropertyGallery } from "@/components/property-gallery";
 import { PropertyReviews } from "@/components/property-reviews";
 import { PropertySectionNav } from "@/components/property-section-nav";
 import { SimilarProperties } from "@/components/similar-properties";
+import { bedroomLabel } from "@/lib/property-format";
 const rentFormatter = new Intl.NumberFormat("en-US");
 const sectionLinks = [
     { id: "overview", label: "Overview" },
@@ -49,11 +50,6 @@ function buildHouseRuleLabels(rules) {
         labels.push(`Suitable for ${suitableForLabels[option]}`);
     }
     return labels;
-}
-function bedroomLabel(count) {
-    if (count === 0)
-        return "Studio / 0 Bedroom";
-    return `${count} Bedroom${count === 1 ? "" : "s"}`;
 }
 function SectionBlock({ id, title, children }) {
     return (<section id={id} aria-labelledby={`${id}-heading`} className="scroll-mt-28 rounded-2xl border border-[#e6e1f2] bg-white p-5 shadow-sm shadow-[#20104a08] md:p-6">

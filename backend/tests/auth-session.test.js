@@ -65,6 +65,9 @@ test("independent tokens keep concurrent sessions isolated", async (t) => {
     assert.deepEqual(responses.map((response) => response.json.user.id), ["user-renter", "user-partner", "user-admin"]);
     assert.deepEqual(responses.map((response) => response.json.user.isPartner), [false, true, false]);
     assert.deepEqual(responses.map((response) => response.json.user.role), ["USER", "USER", "ADMIN"]);
+    const cookieOnly = await Promise.all(sessions.map((session) => request("GET", "/api/me", { cookie: session.cookie })));
+    assert.deepEqual(cookieOnly.map((response) => response.json.user.id), ["user-renter", "user-partner", "user-admin"]);
+    assert.equal(cookieOnly[2].json.user.role, "ADMIN");
   }
 
   const freshPartner = await login("partner@roomstay.test");
