@@ -46,7 +46,7 @@ RoomStay does not process bank transactions. The system records deposit instruct
 4. Final partner onboarding flowchart
 5. Final UI screenshots
 
-## Run the website
+## Run the website locally
 
 The website is JavaScript. From `frontend/`:
 
@@ -56,9 +56,9 @@ npm ci
 npm run dev
 ```
 
-Open http://localhost:3000.
+Local frontend URL: http://localhost:3000.
 
-## Run the API with Supabase
+## Run the API locally
 
 Create a Supabase project, then copy its Postgres connection string into `backend/.env` as `DATABASE_URL`. Use the direct connection or the session pooler on port 5432. Supabase is the database; development startup initializes tables. Production requires explicit schema initialization and does not seed demo accounts.
 
@@ -69,7 +69,9 @@ npm ci
 npm start
 ```
 
-Open http://localhost:4000/api/health. In development, if `DATABASE_URL` is empty, the API uses a local database instead of Supabase and seeds the demo accounts. Password for every account is `password123`:
+Local API health URL: http://localhost:4000/api/health.
+
+In development, if `DATABASE_URL` is empty, the API uses a local database instead of Supabase and seeds the demo accounts. Password for every account is `password123`:
 
 | Role | Email |
 | --- | --- |
@@ -84,6 +86,15 @@ Docker Postgres in `backend/docker-compose.yml` is only a local stand-in. Put th
 cd backend
 npm test
 ```
+
+## Live Deployment
+
+The publicly deployed application uses these production URLs:
+
+- Frontend: https://room-stay.vercel.app
+- Backend health endpoint: https://roomstay-rcxc.onrender.com/api/health
+
+The localhost URLs above are for local development only.
 
 ## Verify the frontend
 
